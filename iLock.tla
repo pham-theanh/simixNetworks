@@ -74,6 +74,7 @@ Mtest(pid, reqs,test_r) ==
 Mwait(pid, reqs) ==
   /\ pid \in Proc
   /\ pc[pid] \in MwaitIns
+  /\ reqs \subseteq Addr
   /\ \E req \in reqs, r \in request: r.id = memory[pid][req]
         /\ isHead(pid,waitedQueue[r.mid])
         /\ request' = (request \ {r})
