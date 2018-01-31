@@ -3,96 +3,136 @@ EXTENDS Integers , Naturals, Sequences, FiniteSets
 
 CONSTANT Proc, Mutex, ValTrue, ValFalse, Addr,
           UnlockIns, MtestIns, MwaitIns, IlockIns
-VARIABLES pc, waitedQueue, memory, requests
+
+(* Process-specific variables (ie, generic variables used by all submodules)
+    - pc[pid] is the next instruction that pid should execute
+   Mutex-specific variables
+    - waitedQueue[mid] is a fifo list of <pid>s that have a pending request
+    - requests[pid] is set of <mid> for which <pid> has a pending requests
+*)
+
+VARIABLES pc, waitedQueue, requests
+
+(* unused variable in this module: memory.
+   - memory[pid][addr] is a value. It means that each pid have a separate memory area
+*)
 
 Partition(S) == \forall x,y \in S : x \cap y /= {} => x = y
 Instr ==UNION {IlockIns, UnlockIns, MtestIns, MwaitIns}
 
 isHead(m,q) == IF q = <<>> THEN FALSE  
-                ELSE IF m = Head(q) THEN  TRUE
+               ELSE IF m = Head(q) THEN  TRUE
                      ELSE FALSE 
 
 
-isContain(q,m) == IF \E i \in (1..Len(q)): m = q[i] THEN TRUE
-                    ELSE FALSE
-(*
-lockRequest == [id: Nat,
-                process: Proc,
-                mutex: Mutex
-           ]
-
-*)
+isMember(m, q) == IF \E i \in (1..Len(q)): m = q[i] THEN TRUE
+                  ELSE FALSE
 -------------------------------------------------------------------------
 
-(*when a process do an ilock, a request req = [id, process, mutex ] will be created. 
-req is added to the set request, and id of red is stored in to memory *)
-
-Ilock(pid,mid, req_a) ==
+(* When a process <pid> does a valid lock_async() on Mutex <mid>, then:
+ *    - <mid> is added to request[pid]
+ *    - <pid> is added to the tail of waitedQueue[mid]
+ * ilock is invalid if <pid> already has a pending request on <mid> (that's a no-op)
+ *)
+mutex_lock_async(pid, mid) ==
    /\ pid \in Proc
    /\ pc[pid] \in IlockIns
    /\ mid \in Mutex
-   /\ req_a \in Addr
-   (* asssume I can not do ilock of mutex mid if I am in the wating queue of 
-   the that mutex (i have a request of mid need to be processed )*)
-   /\ \/ /\~isContain(waitedQueue[mid],pid) 
-         /\ LET  req ==  
-                  [id |-> Cardinality(requests)+1, 
-                   process |-> pid,
-                   mutex |-> mid]
-            IN /\ requests'  = requests \cup {req}
-               /\ memory' = [memory EXCEPT ![pid][req_a] = req.id]  (*store request's id in the memory*)
-          /\ waitedQueue' = [waitedQueue EXCEPT ![mid] = Append(waitedQueue[mid],pid)] 
-       \/ /\ isContain(waitedQueue[mid],pid) 
-          /\ UNCHANGED <<waitedQueue, memory,requests>>  
+   /\ \/ /\ ~isMember(pid, waitedQueue[mid]) 
+         /\ requests'  = [requests EXCEPT ![pid] \cup {mid}]
+         /\ waitedQueue' = [waitedQueue EXCEPT ![mid] = Append(waitedQueue[mid],pid)] 
+      \/ /\ isMember(pid, waitedQueue[mid]) 
+         /\ UNCHANGED <<waitedQueue, requests>>  
    /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
 
 
-
-
-(*if process pid is the owner (head of waitedQueue[mid] ) of the mutex mid
-then we remove pid from the wating queue of the mutex mid. unlock does not 
-need to follow a Mtest or Mwait in this version*)
-   
-Unlock(pid, mid) ==
+(* When a process <pid> does a valid unlock() on Mutex <mid>, then:
+ * - If <pid> is the owner (head of waitingQueue), that's a naive unlock and we 
+ *     remove all linking between pid and mid that was created in ilock().
+ * - If <pid> is not the owner, that's a cancel, and we remove the linking anyway.
+ *
+ * - If <pid> is not even in hte waitingQueue (it did not ask for the <mid> previously),
+ *   that's not enabled, and <pid> is blocked. Too bad for it.
+ *)
+mutex_unlock(pid, mid) ==
    /\ pid \in Proc
    /\ mid \in Mutex
    /\ pc[pid] \in UnlockIns
-   /\ isHead(pid,waitedQueue[mid])
-   /\ waitedQueue' = [waitedQueue EXCEPT ![mid] = Tail(waitedQueue[mid])] 
+   
+   (* If the request was previously posted (either owner or not) remove any linking */
+   /\ isMember(pid, waitedQueue[mid]) 
+   /\ waitedQueue' = [waitedQueue EXCEPT ![mid] = Remove(waitedQueue[mid], pid)]
+   /\ requests' = [requests EXCEPT ![pid] = requests[pid] \ {mid}]
+   (* If not a member, the transition is not enabled *)
+   
    /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
-   /\ UNCHANGED <<memory, requests>>
+
+
+(* When a process <pid> does a mutex_wait on <mid>, 
+ *  - If <pid> is the owner of <mid>, then proceed
+ *  - If not, the transition is not enabled
+ *)
+mutex_wait(pid, mid) == 
+   /\ pid \in Proc
+   /\ mid \in Mutex
+   /\ pc[pid] \in MwaitIns
+
+   /\ isHead(pid, waitedQueue[mid]) (* transition enabled iff pid is owner *)
+
+   /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
+   /\ UNCHANGED <<waitedQueue, requests>>
+
+
+(* mutex_test() is messy because it's not an instruction, but a boolean function that is
+ *  used in transitions of the application.
+ *
+ * Solution 1: make a transtion that is a no-op, ignoring the side effects of the
+ *  return value, arguing that the model is not fine-grained enough. But it's bad because
+ *  we do know that mutex_test() and mutex_unlock() are actually dependent.
+ *
+ * Solution 2: make a pure function, just like isHead(). But if it's not a transition,
+ *  we cannot evaluate whether it's (in)dependent with other transitions.
+ *  We don't want to consider each and every application's transition here.
+ *
+ * Solution 3: split it into 2 transitions, mutex_test_true() and mutex_test_false() that
+ *  are enabled only when they can go through.
+ * 
+ *)
+mutex_test(pid, mid) =
+   \/ mutex_test_true(pid, mid)
+   \/ mutex_test_false(pid, mid)
+
+mutex_test_true(pid, mid) == 
+   /\ pid \in Proc
+   /\ mid \in Mutex
+   /\ pc[pid] \in MtestIns
+   
+   /\ isHead(pid, waitedQueue[mid])
+   
+   /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
+   /\ UNCHANGED <<waitedQueue, requests>>
+
+mutex_test_false(pid, mid) == 
+   /\ pid \in Proc
+   /\ mid \in Mutex
+   /\ pc[pid] \in MtestIns
+   
+   /\ ~isHead(pid, waitedQueue[mid])
+   
+   /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
+   /\ UNCHANGED <<waitedQueue, requests>>
+
+
+(* Remaining TODO:
+  - mutex_wait_any() and mutex_test_any()
+  - see how to combine with communication module, maybe.
 
 
 
-
-
-(* Mtest = Test_any. Testing the set of request, if at least one request (r)
-whose process (pid) is the owner of the mutex (r.mutex) then return ValTrue 
-else return ValFalse. r is removed from the set request if the test returns ValTrue *)
- 
-Mtest(pid, reqs,test_r) ==
-  /\ pid \in Proc
-  /\ pc[pid] \in MtestIns
-  /\ test_r \in Addr
-  /\ reqs \subseteq Addr
-  /\ \/ \E req \in reqs, r \in requests: r.id = memory[pid][req] 
-        /\ isHead(pid,waitedQueue[r.mutex])
-        /\ requests' = (requests \ {r})
-        /\ memory' = [memory EXCEPT ![pid][test_r] = ValTrue]
-     \/ /\ ~\E req \in reqs, r \in requests: /\ r.id = memory[pid][req]       
-            /\ isHead(pid,waitedQueue[r.mutex])
-        /\ memory' = [memory EXCEPT ![pid][test_r] = ValFalse] 
-        /\ UNCHANGED <<requests>>
-  /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
-  /\ UNCHANGED <<waitedQueue>>
-
-
-
-
-(*Mwait = wait_any. the wait is fired if at least one request (r)
+(*Mwait_any. the wait is fired if at least one request (r)
 whose process (pid) is the owner of the mutex (r.mutex), r is removed from set request *)
 
-Mwait(pid, reqs) ==
+Mwait_any(pid, reqs) ==
   /\ pid \in Proc
   /\ pc[pid] \in MwaitIns
   /\ reqs \subseteq Addr
@@ -101,6 +141,7 @@ Mwait(pid, reqs) ==
         /\ requests' = (requests \ {r})
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
   /\ UNCHANGED <<waitedQueue, memory>>
+*)
 ------------------------------------------------------------------------------------------------------
 (*Initiate the variables*)
 
