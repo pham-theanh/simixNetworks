@@ -66,7 +66,7 @@ mutex_unlock(pid, mid) ==
    
    (* If the request was previously posted (either owner or not) remove any linking *)
    /\ isMember(pid, waitedQueue[mid]) 
-   /\ waitedQueue' = [waitedQueue EXCEPT ![mid] = Remove(waitedQueue[mid], pid)]
+   /\ waitedQueue' = [waitedQueue EXCEPT ![mid] = Remove(pwaitedQueue[mid])]
    /\ requests' = [requests EXCEPT ![pid] = requests[pid] \ {mid}]
    (* If not a member, the transition is not enabled *)
    
