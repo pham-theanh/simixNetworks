@@ -27,6 +27,11 @@ isHead(m,q) == IF q = <<>> THEN FALSE
 
 isMember(m, q) == IF \E i \in (1..Len(q)): m = q[i] THEN TRUE
                   ELSE FALSE
+
+getIndex(e,q) == CHOOSE n \in DOMAIN q : q[n] = e
+
+Remove(e,q) == SubSeq(q, 1, getIndex(e,q)-1) \circ SubSeq(q, getIndex(e,q)+1, Len(q))
+
 -------------------------------------------------------------------------
 
 (* When a process <pid> does a valid lock_async() on Mutex <mid>, then:
@@ -59,7 +64,7 @@ mutex_unlock(pid, mid) ==
    /\ mid \in Mutex
    /\ pc[pid] \in UnlockIns
    
-   (* If the request was previously posted (either owner or not) remove any linking */
+   (* If the request was previously posted (either owner or not) remove any linking *)
    /\ isMember(pid, waitedQueue[mid]) 
    /\ waitedQueue' = [waitedQueue EXCEPT ![mid] = Remove(waitedQueue[mid], pid)]
    /\ requests' = [requests EXCEPT ![pid] = requests[pid] \ {mid}]
