@@ -19,8 +19,8 @@
 \RequirePackage{multidef}
 \RequirePackage{xspace}
 \multidef[prefix=bb]{\mathbb{#1}\xspace}{A-Z,One->1}
-\multidef{\textsf{#1}}{Actors,Network,Synchronization,LocalEvents,Mailboxes,Communications,mailbox,communication,Mutexes}
-\multidef{\textsf{\textit{#1}}}{send,receive,mutexlock->MutexLock,mutexunlock->MutexUnlock,mutexwait->MutexWait,mutextest->MutexTest}
+\multidef{\textsf{#1}}{Actors,Network,Synchronization,LocalSystem,Mailboxes,Communications,mailbox,communication,Mutexes}
+\multidef{\textsf{\textit{#1}}}{send,receive,mutexlock->MutexLock,mutexunlock->MutexUnlock,mutexwait->MutexWait,mutextest->MutexTest, localcomputation->LocalComputation, asynsend->AsynSend, asynreceive->AsynReceive, test->Test, wait->Wait}
 
 
 \title{Formal Semantics of the SimGrid Simulator}
@@ -44,12 +44,12 @@ From the formal point of view, a major advantage of the SimGrid framework is tha
 In this document, we are interested in formalizing these operations and their inter-dependencies, that will be useful for partial-order reduction methods  in model-checking.
 
 \section{System State Definition}
-A distributed system is a tuple $P=\langle \Actors, \Network, \Synchronization, \LocalEvents \rangle$ in which 
+A distributed system is a tuple $P=\langle \Actors, \Network, \Synchronization, \LocalSystem \rangle$ in which 
 \begin{itemize}[noitemsep]
 \setlength{\itemsep}{3pt}
-\item   $\Actors$ = $\{ A_1, A_2, ... A_n\}$ is a set of $n$ actors. Actors communicate by using \Mailboxes~ and \Network. They do not have a global shared memory nor a global clock. The execution of an actor $A_i$ consists of a sequence of local state and events (transitions)
-$s_{i,0}\xrightarrow{\text{$e_0$}} s_{i,1} \xrightarrow{\text{$e_1$}}s_{i,2} ... \xrightarrow{\text{$e_{n-1}$}}s_{i,n}$ (firing $e_i$ from state $s_{i}$, the state of the actor $A_i$ changes from $s_i$ to $s_{i+1}$).
-All the events in one actor are totally ordered \TJ{this will be discussed later ?}.  
+\item   $\Actors$ = $\{ A_1, A_2, ... A_n\}$ is a set of $n$ actors. Actors do not have a global shared memory nor a global clock. The execution of an actor $A_i$ consists of an alternate sequence of local states and events (transitions)
+$s_{i,0}\xrightarrow{\text{$e_0$}} s_{i,1} \xrightarrow{\text{$e_1$}}s_{i,2} ... \xrightarrow{\text{$e_{n-1}$}}s_{i,n}$ (firing $e_i$ from local state $s_{i}$, the local state of the actor $A_i$ changes from $s_i$ to $s_{i+1}$).
+All the events in one actor are totally ordered by the causal relation (see below) \TJ{this will be discussed later ?}.  
 \item The \textit{Network} subsystem
 \end{itemize}
 
@@ -66,23 +66,45 @@ where $\send$ and $\receive$ requests meet. FIFO method is applied for combining
 \begin{itemize}[noitemsep]
 \setlength{\itemsep}{3pt}
  \item 
-  $\Mutexes$ = $\{m_1, m_2 ... m_k \}$ is a set of k asynchronous mutexes. The $\Mutexes$ are used to synchronize the actors. An actor declares it's interest on a mutex by executing \mutexlock~ event while the mutex remember that interest by adding id of the actor in to it's waiting queue. An actor is the owner of a mutex if it is the first in the mutex's waiting queue while the others in the queue are waiting actors. We say that a mutex $m$ is busy if there is at least one actor in it's waiting queue, otherwise it is free.
+  $\Mutexes$ = $\{m_1, m_2 ... m_k \}$ is a set of k asynchronous mutexes. The $\Mutexes$ are used to synchronize the actors. An actor declares it's interest on a mutex by executing \mutexlock~ event while the mutex remembers that interest by adding id of the actor in to it's waiting queue. An actor is the owner of a mutex if it is the first in the mutex's waiting queue while the others in the queue are waiting actors. We say that a mutex $m$ is busy if there is at least one actor in it's waiting queue, otherwise it is free.
  \end{itemize}
+ 
+ \begin{itemize}[noitemsep]
+\setlength{\itemsep}{3pt}
+ \item \mutexlock~ is executed by an actor when the actor wants to acquire it. After firing \mutexlock, id of the actor will be add to the tail of the mutex's queue. If the mutex is free, the actor will be come the owner of the mutex, and to help the actor identity which mutexes it has ask for, the mutex's id is added in to it's request set. Unlike classical mutexes, when a actor is waiting for a mutex, it is only blocked if executing \mutexwait. 
+\item \mutexunlock~ is used to remove a interest on a mutex of a actor. Either the actor is the owner or not, this command can be fired by the mutex, deleting id of the actor from the mutex's queue and removing the mutex's id from actor's request set. 
+\item An actor can check if it is the possessor of a mutex that he has previously asked for access to (id of the mutex is included in the actor's request set). To realize this, it can utilize the \mutextest~ returning true if the id of the actor is the first element of the mutex's waiting queue, otherwise the return value is false. While a \mutextest~ can be fired at any time, a \mutexwait~ only be executed by an actor when the actor dominating the mutex (it is the mutex's owner). Hence, a waiting actor can be blocked when trying to execute \mutexwait. 
+ 
 
-\subsection{Local events subsystem}
+\subsection{Local Subsystem}
+
+\subsection{Summary}
+Actor = local state (containing variables and PC) + program (sequence of events) 
+
+\noindent\begin{tabular}{|c||c|c|c|}\hline
+ \textbf{Subsystem}&\Network&\Synchronization&\LocalSystem\\\hline\hline
+ \textbf{Resource}&Mailbox& Mutex & CPU \& Disk\\\hline
+ \textbf{Activity}&Communication&Request&Execution \& I/O\\\hline
+ &Send=\asynsend+\wait&Lock=asynLock+\wait&Exec=asynExec+\wait\\
+ \textbf{Events}&Recv=\asynreceive+\wait&Unlock&Read=asynRead+\wait\\
+ &&&Write=asynWrite+\wait\\\hline
+ 
+\end{tabular}
 
 \section{SimGrid events}
-There are seven events defined in SimGrid, and we can divide them into three groups. The internal event includes only Local\_Computation, it occurrence changes the local state of it's actor. \mutexlock, \mutexunlock, \mutextest, \mutexwait~ are in the mutex events, they can change the sates of the mutexes and their actors. Communication events consist of Asyn\_Send, Asyn\_Receive, Test, Wait, their execution can change the states of their actors and the \Mailboxes.  \\
+There are seven events defined in SimGrid, and we can divide them into three groups. The internal event includes only \localcomputation; The \localcomputation's occurrence changes the local state of it's actor. \mutexlock, \mutexunlock, \mutextest, \mutexwait~ are in the mutex events, they can change the sates of the mutexes and their actors. Communication events consist of \asynsend,~\asynreceive, \test~ and \wait; their execution can change the states of their actors and the \Mailboxes.  \\
 \begin{itemize}[noitemsep]
 \setlength{\itemsep}{3pt}
-\item Mutex\_Lock is executed by an actor when the actor wants to acquire it. After firing Mutex\_Lock, id of the actor will be add to the tail of the mutex's queue. if the mutex is free, the actor will be come the owner of the mutex, and to help the actor identity which mutexes it has ask for, the mutex's id is added in to it's request set. Unlike classical mutexes, when a actor is waiting for a mutex, it is only blocked if executing Mutex\_Wait. 
-\item Mutex\_Unlock is used to remove a interest on a mutex of a actor. Either the actor is the owner or not, this command can be fired by the mutex, deleting id of the actor from the mutex's queue and removing the mutex's id from actor's request set. 
-\item An actor can check if it is the possessor of a mutex that he has previously asked for access to (id of the mutex is included in the actor's request set). To realize this, it can utilize the Mutex\_Test returning true if the id of the actor is the first element of the mutex's waiting queue, otherwise the return value is false. While a Mutex\_Test can be fired at any time, a Mutex\_Wait only be executed by an actor when the actor dominating the mutex (it is the mutex's owner). Hence, a waiting actor can be blocked when trying to execute Mutex\_Wait. 
-\item The exchange of data between actors can be done first by the  Asyn\_Send and Asyn\_Receive events. An actor drops an asynchronous $send$ request to a particular mailbox by executing an Asyn\_Send event. If there are pending $receive$ requests in the mailbox, the $send$ request will be matched with the oldest receive request to form a communication with "ready" status in the Network. In the other hand, there is no pending receive in the mailbox, the request is stored in the mailbox and a communication is still created in the Network with a "send" status.  Similarly, actors use Asyn\_Receive to post an asynchronous receive on a mailbox, the way an receive request is processed is the same way a send request is treated. 
+\item \mutexlock~ is executed by an actor when the actor wants to acquire it. After firing \mutexlock, id of the actor will be add to the tail of the mutex's queue. If the mutex is free, the actor will be come the owner of the mutex, and to help the actor identity which mutexes it has ask for, the mutex's id is added in to it's request set. Unlike classical mutexes, when a actor is waiting for a mutex, it is only blocked if executing \mutexwait. 
+\item \mutexunlock~ is used to remove a interest on a mutex of a actor. Either the actor is the owner or not, this command can be fired by the mutex, deleting id of the actor from the mutex's queue and removing the mutex's id from actor's request set. 
+\item An actor can check if it is the possessor of a mutex that he has previously asked for access to (id of the mutex is included in the actor's request set). To realize this, it can utilize the \mutextest~ returning true if the id of the actor is the first element of the mutex's waiting queue, otherwise the return value is false. While a \mutextest~ can be fired at any time, a \mutexwait~ only be executed by an actor when the actor dominating the mutex (it is the mutex's owner). Hence, a waiting actor can be blocked when trying to execute \mutexwait. 
 
-\item Although communications are established in the Network by the combination of send and receive requests, data are really transfered between actors by firing Test or Wait. Test returns either "True" or "False" depending on the status of the communication what an actor want to test. If the status is "ready" or "done", it returns "True", otherwise "False" is given. As stated, data exchange is performed in Test command. In the case where the status is "ready", data is copied from the souse actor to the destination actor. Similarly, Wait event has the same function in transferring data, but  it does not return any values, and like Mutex\_Wait, it can blocks it's actor if the communication is not ready for being processed.   
+\item The exchange of data between actors can be started by executing  \asynsend~ and \asynreceive~ events. An actor drops an asynchronous \send~ request to a particular mailbox by firing an \asynsend~ event. If there are pending \receive~ requests in the mailbox, the \send~ request will be matched with the oldest receive request to form a communication with "ready" status in the Network. In the other hand, there is no pending receive in the mailbox, the request is stored in the mailbox and a communication is still created in the Network with a "send" status.  Similarly, actors use \asynreceive~ to post an asynchronous receive on a mailbox; the way an receive request is processed is the same way a send request is treated. 
+
+\item Although communications are established in the Network by the combination of send and receive requests, data are really transferred between actors by firing Test or Wait. Test returns either "True" or "False" depending on the status of the communication what an actor want to test. If the status is "ready" or "done", it returns "True", otherwise "False" is given. As stated, data exchange is performed in Test command. In the case where the status is "ready", data is copied from the souse actor to the destination actor. Similarly, Wait event has the same function in transferring data, but  it does not return any values, and like \mutexwait, it can blocks it's actor if the communication is not ready for being processed.   
 \end{itemize}
-In SimGrid, events are atomic and events in the same actor are totally ordered, but events in the whole system are partially ordered (partial order relation).  Hence, there are different instances (runs) of the system, and the relation between events are  considered in a given instance. A global state is defined as a set of local states of the actors, states of the $Mailboxes$ and states of the $Mutexes$. State $S_0$ is used to present the initial state of the system. In the initial state all the mailboxes are empty, all mutexes are free, local variables are initialized. Function execute($S_i$,t)  gives the next global state after executing transition t in the state $S_i$ while function getEnabled($S_i$) gives all the enabled transitions at state $S_i$.
+In SimGrid, events are atomic and events in the same actor are totally ordered, but events in the whole system are partially ordered (partial order relation).  Hence, there are different instances (runs) of the system, and the relation between events are  considered in a given instance. A global state is defined as a set of local states of the actors, and states of the $Mailboxes$ and states of the $Mutexes$. State $S_0$ is used to present the initial state of the system. In the initial state all the mailboxes are empty, all mutexes are free, local variables are initialized. Function execute($S_i$,t)  gives the next global state after executing transition t in the state $S_i$ while function $getEnabled(S_i)$
+gives all the enabled transitions at state $S_i$.
 \section*{3. Happened-before relation}
 \begin{figure}[H]
 	\label{fig:cycle_dependency}
@@ -93,14 +115,15 @@ In SimGrid, events are atomic and events in the same actor are totally ordered, 
 	\end{center}
 	\caption{A MPI program with a potential deadlock}
 \end{figure}
- To adapt to the reality, happened-before relation in SimGrid is flexible. Let's look at an example in Figure~\ref{fig:cycle_dependency}. A MPI program including two processes, and process P0 sends a massage to process P1 (doted line), before receiving  the massage from P0, P1 also sends a massage to P0. At first glance, we may think that there is a deadlock in the program since there is a dependency cycle. However, in practice, depending on the size of the massages exchanged by the processes, the deadlock may appears or not. MPI\_Send and MPI\_Receive are blocking events in MPI, but they may or may not block. MPI\_Send is ambiguously define, it will not return until the buffer passed to it can be reused. For sending small enough massages, those massage eagerly sent before the calling MPI\_Receive from receiving processes (eager protocol). Hence, MPI\_Sends are not blocked until matching MPI\_Receive have been posted. Actually, when the massages are small, MPI can easily find spaces in internal storage to save them before they are really sent. On the other hand, working with large massages, blocking communications are used, MPI\_Sends must wait for matching MPI\_Receives. Therefor, the scenario in Figure~\ref{fig:cycle_dependency} may or may not has a deadlock. SimGrid covers both cases, users can chose optionally two modes detecting or not deadlocks in the same situation with the above scenario. This conversion can be done easily by switching between two happened\_before relations definition.    
+ To adapt to the reality, happened-before relation in SimGrid is flexible. Let's look at an example in Figure~\ref{fig:cycle_dependency}. A MPI program including two processes, and process P0 sends a massage to process P1 (doted line). Before receiving  the massage from P0, P1 also sends a massage to P0. At first glance, we may think that there is a deadlock in the program since there is a dependency cycle. However, in practice, depending on the size of the massages exchanged by the processes, the deadlock may appears or not. MPI\_Send and MPI\_Receive are blocking events in MPI, but they may or may not block. MPI\_Send is ambiguously define, it will not return until the buffer passed to it can be reused. For sending small enough massages, those massage eagerly sent before the calling MPI\_Receive from receiving processes (eager protocol). Hence, MPI\_Sends are not blocked until matching MPI\_Receive have been posted. Actually, if the massages are small, MPI can easily find spaces in internal storage to save them before they are really sent. On the other hand, working with large massages, blocking communications are used, MPI\_Sends must wait for matching MPI\_Receives. Therefor, the scenario in Figure~\ref{fig:cycle_dependency} may or may not has a deadlock. SimGrid covers both cases, users can chose optionally two modes detecting or not deadlocks in the same situation with the above scenario. This conversion can be done easily by switching between two happened\_before relations definition.    
   \begin{definition}
   	\label{def:happedBefore1}
   The happened-before relation  denoted by  $\rightarrow $ can be defined based on two relations precede and causality: \begin{itemize}
   	\item Precede $ \prec$ :  Two events e and f in the same actor $A_i$, e $ \prec$ f if the occurrence of e precedes the occurrence of f in the actor $A_i$  
-  	\item Causality $<$ : Event e is the Asyn\_Send or Asyn\_Receive event of actor $A_i$, event f is the Wait event of the actor $A_j$,  e $<$ f if e and f concerns the same communication request.
+  	\item Causality $<$ : Event e is the \asynsend~ or \asynreceive~ event of actor $A_i$, event f is the Wait event of the actor $A_j$,  e $<$ f if e and f concerns the same communication request.
   	\item The ‘happened before’ is a transitive relation including precede and causality relations. 
   \end{itemize}\end{definition} 
+  
  \begin{figure}[H]
 \label{fig:hapend_before}
 \subfigure[deadlock]{
@@ -111,20 +134,21 @@ In SimGrid, events are atomic and events in the same actor are totally ordered, 
 \includegraphics[width=7cm,height=7cm]{deadlockFree.pdf}
 	}
 \caption{Happened- before relations between events}
-\end{figure}	
-The diagram in Figure~\ref{fig:hapend_before}(a) illustrates happened\_before relations (denoted by arrow lines)  between events in the program based on Definition~\ref{def:happedBefore1}. In SimGrid a MPI\_Send is simulated by a Asyn\_Send and a Wait while a MPI\_Receive consist of a Asys\_Receive and a Wait. Obviously, there is a happened\_before relation cycle in the diagram, the cycle includes the first Wait and Asyn\_Receive of P0, the first Wait and the Asyn\_Receive of P1. The existing of cycle leads to a deadlock in the program. In the case we do not want to capture the deadlock, Definiton~\ref{def:happedBefore2} is used.
+\end{figure}
+
+The diagram in Figure~\ref{fig:hapend_before}(a) illustrates happened\_before relations (denoted by arrow lines) between events in the program based on Definition~\ref{def:happedBefore1}. In SimGrid a MPI\_Send is simulated by a \asynsend~ and a \wait~ while a MPI\_Receive consist of a \asynreceive~ and a \wait. Obviously, there is a happened\_before relation cycle in the diagram; the cycle includes the first Wait and \asynreceive~ of P0, the first Wait and the \asynreceive~ of P1. The existing of cycle leads to a deadlock in the program. In the case we do not want to capture the deadlock, Definiton~\ref{def:happedBefore2} is used.
 
 \begin{definition}
 	  	\label{def:happedBefore2}
 	The happened-before relation  denoted by  $\rightarrow $ can be defined based on two relations precede and causality: \begin{itemize}
 		\item Precede $ \prec$ :  Two events e and f in the same actor $A_i$, e $ \prec$ f if the occurrence of e precedes the occurrence of f in the actor $A_i$  
-		\item Causality $<$ : Event e is the Asyn\_Send event of actor $A_i$, event f is the Wait event of the actor $A_j$,  e $<$ f if e and f concerns the same communication request.
+		\item Causality $<$ : Event e is the \asynsend~ event of actor $A_i$, event f is the Wait event of the actor $A_j$,  e $<$ f if e and f concerns the same communication request.
 		\item The ‘happened before’ is a transitive relation including precede and causality relations. 
 	\end{itemize}\end{definition} 
 
-Using Definition~\ref{def:happedBefore2}, presenting the happened\_before relation between events of the program in Figure~\ref{fig:hapend_before}(b), we can see that there are no any cycle, then the program is deadlock-free.
+Using Definition~\ref{def:happedBefore2} and presenting the happened\_before relation between events of the program in Figure~\ref{fig:hapend_before}(b), we can see that there are no any cycle, then the program is deadlock-free.
 
-The happened-before relation is not a total order on the events, two events may not related by a happened-before relation. In that case, we say that they are concurrent denoted by the symbol $\parallel$. For example, in the above figures, since $\neg$(Asyn\_Send of P0 $<$ Asyn\_Send of P1) and $\neg$(Asyn\_Send of P0 $ \prec$  Asyn\_Send of P1 ) then Asyn\_Send of P0 $\parallel$ Asyn\_Send of P1.  
+The happened-before relation is not a total order on the events, two events may not related by a happened-before relation. In that case, we say that they are concurrent denoted by the symbol $\parallel$. For example, in the above figures, since $\neg$(\asynsend~ of P0 $<$ \asynsend~ of P1) and $\neg$(\asynsend~ of P0 $ \prec$  \asynsend~ of P1 ) then \asynsend~ of P0 $\parallel$ \asynsend~ of P1.  
 
 \section{MPI Implementation}
 TODO: explain here how MPI is implemented on top of the previously described API
