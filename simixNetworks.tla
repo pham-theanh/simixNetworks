@@ -24,10 +24,7 @@ Comm == [id:Nat,
          dst:Proc,
          data_src:Addr,
          data_dst:Addr]
-Reqest == [id: Nat,
-           pocess: Proc,
-           mutex: Mutex
-           ]
+
 
 isHead(m,q) == IF q = <<>> THEN FALSE  
                 ELSE IF m = Head(q) THEN  TRUE
