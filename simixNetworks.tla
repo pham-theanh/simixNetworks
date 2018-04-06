@@ -9,7 +9,7 @@
 EXTENDS Naturals, Sequences, FiniteSets
 CONSTANTS RdV, Addr, Proc, Mutex, ValTrue, ValFalse, SendIns, RecvIns, WaitIns, 
           TestIns, LocalIns, LockIns, UnlockIns, MtestIns, MwaitIns
-VARIABLES network, memory, testMemory, pc, pcState, waitedQueue
+VARIABLES Communications, memory, testMemory, pc, pcState, waitedQueue
 
 NoProc == CHOOSE p : p \notin Proc
 NoAddr == CHOOSE a : a \notin Addr
@@ -41,19 +41,19 @@ ASSUME Partition({SendIns, RecvIns, WaitIns, TestIns, LocalIns})
 
 
 (* Let's keep everything in the right domains *)
-TypeInv == /\ network \subseteq Comm
+TypeInv == /\ Communications \subseteq Comm
            /\ memory \in [Proc -> [Addr -> Nat]]
            /\ pc \in [Proc -> Instr]
 
 (* The set of all communications waiting at rdv *)
 (* ----- mailbox is updated automatically when updating the network ?? *)
-mailbox(rdv) == {comm \in network : comm.rdv=rdv /\ comm.status \in {"send","recv"}}
+mailbox(rdv) == {comm \in Communications : comm.rdv=rdv /\ comm.status \in {"send","recv"}}
 
 
 (* The set of memory addresses of a process being used in a communication *)
 CommBuffers(pid) == 
-  {c.data_src: c \in { y \in network: y.status /= "done" /\ (y.src = pid \/ y.dst = pid)}} 
-\cup {c.data_dst: c \in { y \in network: y.status /= "done" /\ (y.src = pid \/ y.dst = pid)}}
+  {c.data_src: c \in { y \in Communications: y.status /= "done" /\ (y.src = pid \/ y.dst = pid)}} 
+\cup {c.data_dst: c \in { y \in Communications: y.status /= "done" /\ (y.src = pid \/ y.dst = pid)}}
 
 (* This is a send step of the system *)
 (* pid: the process ID of the sender *)
@@ -73,8 +73,8 @@ Send(pid, rdv, data_r, comm_r) ==
   /\ \/ \exists c \in mailbox(rdv):
           /\ c.status="recv"
           /\ \forall d \in mailbox(rdv): d.status="recv" => c.id <= d.id
-          /\ network' = 
-               (network \ {c}) \cup {[c EXCEPT
+          /\ Communications' = 
+               (Communications \ {c}) \cup {[c EXCEPT
                                        !.status = "ready",
                                        !.src = pid,
                                        !.data_src = data_r]}
@@ -83,10 +83,10 @@ Send(pid, rdv, data_r, comm_r) ==
                
      
      (* No matching recv communication request exists. *)
-     (* Create a send request and push it in the network. *)
+     (* Create a send request and push it in the Communications. *)
      \/ /\ ~ \exists c \in mailbox(rdv): c.status = "recv" 
         /\ LET comm ==  
-                 [id |-> Cardinality(network)+1, 
+                 [id |-> Cardinality(Communications)+1, 
                   rdv |-> rdv,
                   status |-> "send", 
                   src |-> pid,
@@ -94,7 +94,7 @@ Send(pid, rdv, data_r, comm_r) ==
                   data_src |-> data_r,
                   data_dst |-> NoAddr]
            IN
-             /\ network' = network \cup {comm}
+             /\ Communications' = Communications \cup {comm}
              /\ memory' = [memory EXCEPT ![pid][comm_r] = comm.id]           
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
   /\ UNCHANGED <<testMemory, pcState, waitedQueue>>
