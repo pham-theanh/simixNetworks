@@ -66,7 +66,6 @@ Send(pid, rdv, data_r, comm_r) ==
   /\ data_r \in Addr
   /\ comm_r \in Addr
   /\ pc[pid] \in SendIns
-  /\ pcState[pid] /= "blocked"   
    
      (* A matching recv request exists in the rendez-vous *)
      (* Complete the sender fields and set the communication to the ready state *)
@@ -109,7 +108,6 @@ Recv(pid, rdv, data_r, comm_r) ==
   /\ data_r \in Addr
   /\ comm_r \in Addr
   /\ pc[pid] \in RecvIns
-  /\ pcState[pid] /= "blocked"   
   
      (* A matching send request exists in the rendez-vous *)
      (* Complete the receiver fields and set the communication to the ready state *)
@@ -145,7 +143,6 @@ Recv(pid, rdv, data_r, comm_r) ==
 Wait(pid, comms) ==
   /\ pid \in Proc
   /\ pc[pid] \in WaitIns
-  /\ pcState[pid] /= "blocked"   
   
   /\ \E comm_r \in comms, c \in network: c.id = memory[pid][comm_r] /\
      \/ /\ c.status = "ready"
@@ -163,7 +160,6 @@ Test(pid, comms, ret_r) ==
   /\ ret_r \in Addr
   /\ pid \in Proc
   /\ pc[pid] \in TestIns
-  /\ pcState[pid] /= "blocked"   
   /\ \/ \E comm_r \in comms, c\in network: c.id = memory[pid][comm_r] /\
         \/ /\ c.status = "ready"
            /\ memory' = [memory EXCEPT ![c.dst][c.data_dst] = memory[c.src][c.data_src],
@@ -184,7 +180,6 @@ Test(pid, comms, ret_r) ==
 Local(pid) ==
     /\ pid \in Proc
     /\ pc[pid] \in LocalIns
-    /\ pcState[pid] /= "blocked"   
    (* /\ memory' \in [Proc -> [Addr -> Nat]]
     /\ \forall p \in Proc, a \in Addr: memory'[p][a] /= memory[p][a]
        => p = pid /\ a \notin CommBuffers(pid) *)
