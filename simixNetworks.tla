@@ -114,8 +114,8 @@ Recv(pid, rdv, data_r, comm_r) ==
   /\ \/ \exists c \in mailbox(rdv):
           /\ c.status="send"
           /\ \forall d \in mailbox(rdv): d.status="send" => c.id <= d.id
-          /\ network' = 
-               (network \ {c}) \cup {[c EXCEPT
+          /\ Communications' = 
+               (Communications \ {c}) \cup {[c EXCEPT
                                        !.status = "ready",
                                        !.dst = pid,
                                        !.data_dst = data_r]}
@@ -124,15 +124,15 @@ Recv(pid, rdv, data_r, comm_r) ==
                
      
      (* No matching send communication request exists. *)
-     (* Create a recv request and push it in the network. *)
+     (* Create a recv request and push it in the Communications. *)
      \/ /\ ~ \exists c \in mailbox(rdv): c.status = "send" 
         /\ LET comm ==  
-                 [id |-> Cardinality(network)+1,
+                 [id |-> Cardinality(Communications)+1,
                   status |-> "recv", 
                   dst |-> pid, 
                   data_dst |-> data_r]
            IN
-             /\ network' = network \cup {comm}
+             /\ Communications' = Communications \cup {comm}
              /\ memory' = [memory EXCEPT ![pid][comm_r] = comm.id]           
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
   /\ UNCHANGED <<testMemory, pcState, waitedQueue>>
@@ -144,12 +144,12 @@ Wait(pid, comms) ==
   /\ pid \in Proc
   /\ pc[pid] \in WaitIns
   
-  /\ \E comm_r \in comms, c \in network: c.id = memory[pid][comm_r] /\
+  /\ \E comm_r \in comms, c \in Communications: c.id = memory[pid][comm_r] /\
      \/ /\ c.status = "ready"
         /\ memory' = [memory EXCEPT ![c.dst][c.data_dst] = memory[c.src][c.data_src]]
-        /\ network' = (network \ {c}) \cup {[c EXCEPT !.status = "done"]}
+        /\ Communications' = (Communications \ {c}) \cup {[c EXCEPT !.status = "done"]}
      \/ /\ c.status = "done"
-        /\ UNCHANGED <<memory,network,testMemory, pcState, waitedQueue>>
+        /\ UNCHANGED <<memory,Communications,testMemory, pcState, waitedQueue>>
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
 
 (* Test if at least one communication from a given list has completed *)
@@ -160,20 +160,20 @@ Test(pid, comms, ret_r) ==
   /\ ret_r \in Addr
   /\ pid \in Proc
   /\ pc[pid] \in TestIns
-  /\ \/ \E comm_r \in comms, c\in network: c.id = memory[pid][comm_r] /\
+  /\ \/ \E comm_r \in comms, c\in Communications: c.id = memory[pid][comm_r] /\
         \/ /\ c.status = "ready"
            /\ memory' = [memory EXCEPT ![c.dst][c.data_dst] = memory[c.src][c.data_src],
                                         ![pid][ret_r] = ValTrue]
-           /\ network' = (network \ {c}) \cup {[c EXCEPT !.status = "done"]}
+           /\ Communications' = (Communications \ {c}) \cup {[c EXCEPT !.status = "done"]}
         \/ /\ c.status = "done"
            /\ memory' = [memory EXCEPT ![pid][ret_r] = ValTrue]
-           /\ UNCHANGED <<network, testMemory, pcState, waitedQueue>>
+           /\ UNCHANGED <<Communications, testMemory, pcState, waitedQueue>>
            
            
-     \/ ~ \exists comm_r \in comms, c \in network: c.id = memory[pid][comm_r]
+     \/ ~ \exists comm_r \in comms, c \in Communications: c.id = memory[pid][comm_r]
         /\ c.status \in {"ready","done"}
         /\ memory' = [memory EXCEPT ![pid][ret_r] = ValFalse]
-        /\ UNCHANGED <<network, testMemory, pcState, waitedQueue>> 
+        /\ UNCHANGED <<Communications, testMemory, pcState, waitedQueue>> 
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
 
 (* Local instruction execution *)
@@ -187,7 +187,7 @@ Local(pid) ==
     /\ \forall a \in Addr: memory'[pid][a] /= memory[pid][a]
        => a \notin CommBuffers(pid)
     /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
-    /\ UNCHANGED <<network, testMemory, pcState, waitedQueue>>
+    /\ UNCHANGED <<Communications, testMemory, pcState, waitedQueue>>
 ----------------------------------------------------------------------------------------------------------------
 
 Lock(pid,mid) ==
@@ -198,10 +198,10 @@ Lock(pid,mid) ==
    /\ pcState[pid] /= "blocked"   
    /\ \/ /\ Len(waitedQueue[mid]) > 0 (*if the mutex is busy then block the process*)
          /\ pcState' = [pcState EXCEPT ![pid] = "blocked"]
-         /\ UNCHANGED <<memory,network, testMemory >>
+         /\ UNCHANGED <<memory,Communications, testMemory >>
          
       \/ /\ Len(waitedQueue[mid])=0 
-         /\ UNCHANGED <<memory,network, pcState,testMemory >>     
+         /\ UNCHANGED <<memory,Communications, pcState,testMemory >>     
    /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
    /\ waitedQueue' = [waitedQueue EXCEPT ![mid] = Append(waitedQueue[mid],pid)]  
    
@@ -215,10 +215,10 @@ Unlock(pid, mid) ==
    /\ \/ /\  Len(waitedQueue[mid]) > 1       (* there is someone to wake up *)
          /\  LET e == Head(Tail(waitedQueue[mid]))         (*get the second process in the queue to wake it up*)
              IN pcState' = [pcState EXCEPT ![e] = "running"]
-         /\ UNCHANGED <<memory,network,testMemory>>
+         /\ UNCHANGED <<memory,Communications,testMemory>>
                
       \/ /\ Len(waitedQueue[mid]) = 1
-         /\ UNCHANGED <<memory,network,pcState,testMemory>>
+         /\ UNCHANGED <<memory,Communications,pcState,testMemory>>
    
    /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
    
@@ -235,7 +235,7 @@ Mtest(pid, mid) ==
               \/ ~isHead(pid,waitedQueue[mid])
            /\ testMemory' = [testMemory EXCEPT ![pid][mid] = ValFalse]
       
-     /\ UNCHANGED <<memory,network, pcState,waitedQueue,occupiedMutex >>
+     /\ UNCHANGED <<memory,Communications, pcState,waitedQueue,occupiedMutex >>
      /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
   
 
@@ -245,7 +245,7 @@ Mwait(pid, mid) ==
      /\ pc[pid] \in MwaitIns
      /\  \/ Len(waitedQueue[mid]) =0
          \/ isHead(pid,waitedQueue[mid])
-     /\ UNCHANGED <<memory,network, pcState,waitedQueue,occupiedMutex,testMemory >>
+     /\ UNCHANGED <<memory,Communications, pcState,waitedQueue,occupiedMutex,testMemory >>
      /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
      
 *)
@@ -254,9 +254,9 @@ Mwait(pid, mid) ==
 ----------------------------------------------------------------------------------------------------------------
 
 
-(* Initially there are no messages in the network and the memory can have anything in their memories *)
+(* Initially there are no messages in the Communications and the memory can have anything in their memories *)
 
-Init == /\ network = {}
+Init == /\ Communications = {}
         /\ memory \in [Proc -> [Addr -> {0}]]
         /\ testMemory \in [Proc -> [Mutex -> {0}]]
         /\ waitedQueue = [i \in Mutex |-> << >>]
@@ -268,7 +268,7 @@ Init == /\ network = {}
 
 (*
 Next == \exists p \in Proc, data_r \in Addr, comm_r \in Addr, rdv \in RdV,
-                ret_r \in Addr, ids \in SUBSET network, mutex \in Mutex:
+                ret_r \in Addr, ids \in SUBSET Communications, mutex \in Mutex:
           \/ Send(p, rdv, data_r, comm_r)
           \/ Recv(p, rdv, data_r, comm_r)
           \/ Wait(p, comm_r)
@@ -281,7 +281,7 @@ Next == \exists p \in Proc, data_r \in Addr, comm_r \in Addr, rdv \in RdV,
  *)
 
 Next == \exists p \in Proc, data_r \in Addr, comm_r \in Addr, rdv \in RdV,
-                ret_r \in Addr, ids \in SUBSET network, mutex \in Mutex:
+                ret_r \in Addr, ids \in SUBSET Communications, mutex \in Mutex:
           \/ Send(p, rdv, data_r, comm_r)
           \/ Recv(p, rdv, data_r, comm_r)
           \/ Wait(p, comm_r)
@@ -292,7 +292,7 @@ Next == \exists p \in Proc, data_r \in Addr, comm_r \in Addr, rdv \in RdV,
          (* \/ Mwait(p, mutex)
           \/ Mtest(p,mutex)   *)  
           
-Spec == Init /\ [][Next]_<<pc, network,memory,pcState,waitedQueue,testMemory >>
+Spec == Init /\ [][Next]_<<pc, Communications,memory,pcState,waitedQueue,testMemory >>
 -----------------------------------------------------------------------------------------------------------------
 
 ------------------------------------------
@@ -311,7 +311,7 @@ THEOREM \forall p1, p2 \in Proc: \forall rdv1, rdv2 \in RdV:
 
 (* Independence of iSend and Wait *)
 THEOREM \forall p1, p2 \in Proc: \forall data, comm1, comm2 \in Addr:
-        \forall rdv \in RdV: \exists c \in network:
+        \forall rdv \in RdV: \exists c \in Communications:
         /\ p1 /= p2
         /\ c.id = memory[p2][comm2]
         /\ \/ (p1 /= c.dst /\ p1 /= c.src)
