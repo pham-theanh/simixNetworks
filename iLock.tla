@@ -39,17 +39,18 @@ Remove(e,q) == SubSeq(q, 1, getIndex(e,q)-1) \circ SubSeq(q, getIndex(e,q)+1, Le
  *    - <pid> is added to the tail of waitedQueue[mid]
  * ilock is invalid if <pid> already has a pending request on <mid> (that's a no-op)
  *)
-mutex_lock_async(pid, mid) ==
+
+
+MutexAsyncLock(pid, mid) ==
    /\ pid \in Proc
    /\ pc[pid] \in IlockIns
    /\ mid \in Mutex
-   /\ \/ /\ ~isMember(pid, waitedQueue[mid]) 
-         /\ requests'  = [requests EXCEPT ![pid] \cup {mid}]
-         /\ waitedQueue' = [waitedQueue EXCEPT ![mid] = Append(waitedQueue[mid],pid)] 
-      \/ /\ isMember(pid, waitedQueue[mid]) 
-         /\ UNCHANGED <<waitedQueue, requests>>  
+   /\ \/ /\ ~isMember(pid, waitingQueue[mid]) 
+         /\ requests'  = [requests EXCEPT ![pid]= requests[pid] \cup {mid}]
+         /\ waitingQueue' = [waitingQueue EXCEPT ![mid] = Append(waitingQueue[mid],pid)] 
+      \/ /\ isMember(pid, waitingQueue[mid]) 
+         /\ UNCHANGED <<waitingQueue, requests,network, testMemory>>  
    /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
-
 
 (* When a process <pid> does a valid unlock() on Mutex <mid>, then:
  * - If <pid> is the owner (head of waitingQueue), that's a naive unlock and we 
@@ -59,24 +60,28 @@ mutex_lock_async(pid, mid) ==
  * - If <pid> is not even in hte waitingQueue (it did not ask for the <mid> previously),
  *   that's not enabled, and <pid> is blocked. Too bad for it.
  *)
-mutex_unlock(pid, mid) ==
+MutexUnlock(pid, mid) ==
    /\ pid \in Proc
    /\ mid \in Mutex
    /\ pc[pid] \in UnlockIns
    
    (* If the request was previously posted (either owner or not) remove any linking *)
-   /\ isMember(pid, waitedQueue[mid]) 
-   /\ waitedQueue' = [waitedQueue EXCEPT ![mid] = Remove(pid,waitedQueue[mid])]
+   /\ isMember(pid, waitingQueue[mid]) 
+   /\ waitingQueue' = [waitingQueue EXCEPT ![mid] = Remove(pid,waitingQueue[mid])]
    /\ requests' = [requests EXCEPT ![pid] = requests[pid] \ {mid}]
    (* If not a member, the transition is not enabled *)
    
    /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
+   /\ UNCHANGED <<network, testMemory>>  
 
 
 (* When a process <pid> does a mutex_wait on <mid>, 
  *  - If <pid> is the owner of <mid>, then proceed
  *  - If not, the transition is not enabled
  *)
+
+
+
 mutex_wait(pid, mid) == 
    /\ pid \in Proc
    /\ mid \in Mutex
@@ -158,8 +163,8 @@ Init ==
         /\ requests = {}
 
 Next == \exists p \in Proc, mutex \in Mutex, req_a \in Addr  , test_r \in Addr, reqs \in SUBSET Addr:
-          \/ Ilock(p,mutex, req_a)
-          \/ Unlock(p,mutex)
+          \/ MutexAsyncLock(p,mutex, req_a)
+          \/ MutexUnlock(p,mutex)
           \/ Mwait(p, reqs)
           \/ Mtest(p,reqs, test_r)
 
