@@ -7,11 +7,11 @@ CONSTANT Proc, Mutex, ValTrue, ValFalse, Addr,
 (* Process-specific variables (ie, generic variables used by all submodules)
     - pc[pid] is the next instruction that pid should execute
    Mutex-specific variables
-    - waitedQueue[mid] is a fifo list of <pid>s that have a pending request
+    - waitingQueue[mid] is a fifo list of <pid>s that have a pending request
     - requests[pid] is set of <mid> for which <pid> has a pending requests
 *)
 
-VARIABLES pc, waitedQueue, requests
+VARIABLES pc, waitingQueue, requests
 
 (* unused variable in this module: memory.
    - memory[pid][addr] is a value. It means that each pid have a separate memory area
@@ -36,7 +36,7 @@ Remove(e,q) == SubSeq(q, 1, getIndex(e,q)-1) \circ SubSeq(q, getIndex(e,q)+1, Le
 
 (* When a process <pid> does a valid lock_async() on Mutex <mid>, then:
  *    - <mid> is added to request[pid]
- *    - <pid> is added to the tail of waitedQueue[mid]
+ *    - <pid> is added to the tail of waitingQueue[mid]
  * ilock is invalid if <pid> already has a pending request on <mid> (that's a no-op)
  *)
 
@@ -87,10 +87,10 @@ mutex_wait(pid, mid) ==
    /\ mid \in Mutex
    /\ pc[pid] \in MwaitIns
 
-   /\ isHead(pid, waitedQueue[mid]) (* transition enabled iff pid is owner *)
+   /\ isHead(pid, waitingQueue[mid]) (* transition enabled iff pid is owner *)
 
    /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
-   /\ UNCHANGED <<waitedQueue, requests>>
+   /\ UNCHANGED <<waitingQueue, requests>>
 
 
 (* mutex_test() is messy because it's not an instruction, but a boolean function that is
@@ -117,20 +117,20 @@ mutex_test_true(pid, mid) ==
    /\ mid \in Mutex
    /\ pc[pid] \in MtestIns
    
-   /\ isHead(pid, waitedQueue[mid])
+   /\ isHead(pid, waitingQueue[mid])
    
    /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
-   /\ UNCHANGED <<waitedQueue, requests>>
+   /\ UNCHANGED <<waitingQueue, requests>>
 
 mutex_test_false(pid, mid) == 
    /\ pid \in Proc
    /\ mid \in Mutex
    /\ pc[pid] \in MtestIns
    
-   /\ ~isHead(pid, waitedQueue[mid])
+   /\ ~isHead(pid, waitingQueue[mid])
    
    /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
-   /\ UNCHANGED <<waitedQueue, requests>>
+   /\ UNCHANGED <<waitingQueue, requests>>
 
 
 (* Remaining TODO:
@@ -147,16 +147,16 @@ Mwait_any(pid, reqs) ==
   /\ pc[pid] \in MwaitIns
   /\ reqs \subseteq Addr
   /\ \E req \in reqs, r \in requests: /\ r.id = memory[pid][req]
-        /\ isHead(pid,waitedQueue[r.mutex])
+        /\ isHead(pid,waitingQueue[r.mutex])
         /\ requests' = (requests \ {r})
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
-  /\ UNCHANGED <<waitedQueue, memory>>
+  /\ UNCHANGED <<waitingQueue, memory>>
 *)
 ------------------------------------------------------------------------------------------------------
 (*Initiate the variables*)
 
 Init == 
-        /\ waitedQueue = [i \in Mutex |-> << >>]
+        /\ waitingQueue = [i \in Mutex |-> << >>]
         /\ pc = CHOOSE f \in [Proc -> Instr] : TRUE
         (*/\ pc = [i \in Proc |-> "ilock"]*)
         /\ memory  \in [Proc -> [Addr -> {0}]]
@@ -174,7 +174,7 @@ Next == \exists p \in Proc, mutex \in Mutex, req_a \in Addr  , test_r \in Addr, 
                                 
                                 /\ p1 /= p2*)
                              
- Spec == Init /\ [][Next]_<<pc,waitedQueue, memory,requests>>     
+ Spec == Init /\ [][Next]_<<pc,waitingQueue, memory,requests>>     
 -----------------------------------------------------------------------------------------------------
 (* Independence operator *)
 I(A,B) == ENABLED A /\ ENABLED B => /\ A => (ENABLED B)'
