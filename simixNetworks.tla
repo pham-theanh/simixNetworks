@@ -1,4 +1,4 @@
------------------------- MODULE networkSpecification ------------------------
+------------------------ MODULE simixNetworks ------------------------
 
 (* This is a TLA module specifying the Communicationsing layer of SIMIX. 
    It is used to verify the soundness of the DPOR reduction algorithm
