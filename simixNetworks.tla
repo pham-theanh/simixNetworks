@@ -9,7 +9,7 @@
 EXTENDS Naturals, Sequences, FiniteSets
 CONSTANTS RdV, Addr, Proc, Mutex, ValTrue, ValFalse, SendIns, RecvIns, WaitIns, 
           TestIns, LocalIns, LockIns, UnlockIns, MtestIns, MwaitIns
-VARIABLES Communications, memory, testMemory, pc, pcState, waitedQueue
+VARIABLES Communications, memory,  pc, pcState, waitedQueue
 
 NoProc == CHOOSE p : p \notin Proc
 NoAddr == CHOOSE a : a \notin Addr
@@ -96,7 +96,7 @@ Send(pid, rdv, data_r, comm_r) ==
              /\ Communications' = Communications \cup {comm}
              /\ memory' = [memory EXCEPT ![pid][comm_r] = comm.id]           
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
-  /\ UNCHANGED <<testMemory, pcState, waitedQueue>>
+  /\ UNCHANGED << pcState, waitedQueue>>
 (* This is a receive step of the system *)
 (* pid: the process ID of the receiver *)
 (* rdv: the Rendez-vous where the "receive" communication request is going to be pushed *)
@@ -135,7 +135,7 @@ Recv(pid, rdv, data_r, comm_r) ==
              /\ Communications' = Communications \cup {comm}
              /\ memory' = [memory EXCEPT ![pid][comm_r] = comm.id]           
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
-  /\ UNCHANGED <<testMemory, pcState, waitedQueue>>
+  /\ UNCHANGED << pcState, waitedQueue>>
 
 (* Wait for at least one communication from a given list to complete *)
 (* pid: the process ID issuing the wait *)
@@ -149,7 +149,7 @@ Wait(pid, comms) ==
         /\ memory' = [memory EXCEPT ![c.dst][c.data_dst] = memory[c.src][c.data_src]]
         /\ Communications' = (Communications \ {c}) \cup {[c EXCEPT !.status = "done"]}
      \/ /\ c.status = "done"
-        /\ UNCHANGED <<memory,Communications,testMemory, pcState, waitedQueue>>
+        /\ UNCHANGED <<memory,Communications, pcState, waitedQueue>>
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
 
 (* Test if at least one communication from a given list has completed *)
@@ -167,13 +167,13 @@ Test(pid, comms, ret_r) ==
            /\ Communications' = (Communications \ {c}) \cup {[c EXCEPT !.status = "done"]}
         \/ /\ c.status = "done"
            /\ memory' = [memory EXCEPT ![pid][ret_r] = ValTrue]
-           /\ UNCHANGED <<Communications, testMemory, pcState, waitedQueue>>
+           /\ UNCHANGED <<Communications, pcState, waitedQueue>>
            
            
      \/ ~ \exists comm_r \in comms, c \in Communications: c.id = memory[pid][comm_r]
         /\ c.status \in {"ready","done"}
         /\ memory' = [memory EXCEPT ![pid][ret_r] = ValFalse]
-        /\ UNCHANGED <<Communications, testMemory, pcState, waitedQueue>> 
+        /\ UNCHANGED <<Communications,  pcState, waitedQueue>> 
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
 
 (* Local instruction execution *)
@@ -187,7 +187,7 @@ Local(pid) ==
     /\ \forall a \in Addr: memory'[pid][a] /= memory[pid][a]
        => a \notin CommBuffers(pid)
     /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
-    /\ UNCHANGED <<Communications, testMemory, pcState, waitedQueue>>
+    /\ UNCHANGED <<Communications,  pcState, waitedQueue>>
 ----------------------------------------------------------------------------------------------------------------
 
 Lock(pid,mid) ==
@@ -198,10 +198,10 @@ Lock(pid,mid) ==
    /\ pcState[pid] /= "blocked"   
    /\ \/ /\ Len(waitedQueue[mid]) > 0 (*if the mutex is busy then block the process*)
          /\ pcState' = [pcState EXCEPT ![pid] = "blocked"]
-         /\ UNCHANGED <<memory,Communications, testMemory >>
+         /\ UNCHANGED <<memory,Communications >>
          
       \/ /\ Len(waitedQueue[mid])=0 
-         /\ UNCHANGED <<memory,Communications, pcState,testMemory >>     
+         /\ UNCHANGED <<memory,Communications, pcState >>     
    /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
    /\ waitedQueue' = [waitedQueue EXCEPT ![mid] = Append(waitedQueue[mid],pid)]  
    
@@ -215,10 +215,10 @@ Unlock(pid, mid) ==
    /\ \/ /\  Len(waitedQueue[mid]) > 1       (* there is someone to wake up *)
          /\  LET e == Head(Tail(waitedQueue[mid]))         (*get the second process in the queue to wake it up*)
              IN pcState' = [pcState EXCEPT ![e] = "running"]
-         /\ UNCHANGED <<memory,Communications,testMemory>>
+         /\ UNCHANGED <<memory,Communications>>
                
       \/ /\ Len(waitedQueue[mid]) = 1
-         /\ UNCHANGED <<memory,Communications,pcState,testMemory>>
+         /\ UNCHANGED <<memory,Communications,pcState>>
    
    /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
    
@@ -245,7 +245,7 @@ Mwait(pid, mid) ==
      /\ pc[pid] \in MwaitIns
      /\  \/ Len(waitedQueue[mid]) =0
          \/ isHead(pid,waitedQueue[mid])
-     /\ UNCHANGED <<memory,Communications, pcState,waitedQueue,occupiedMutex,testMemory >>
+     /\ UNCHANGED <<memory,Communications, pcState,waitedQueue,occupiedMutex
      /\ \E ins \in Instr : pc' = [pc EXCEPT ![pid] = ins]
      
 *)
@@ -258,7 +258,6 @@ Mwait(pid, mid) ==
 
 Init == /\ Communications = {}
         /\ memory \in [Proc -> [Addr -> {0}]]
-        /\ testMemory \in [Proc -> [Mutex -> {0}]]
         /\ waitedQueue = [i \in Mutex |-> << >>]
         /\ pcState = [i \in Proc |-> "running"]
         (*/\ pc = CHOOSE f : f \in [Proc -> Instr]*)
@@ -292,7 +291,7 @@ Next == \exists p \in Proc, data_r \in Addr, comm_r \in Addr, rdv \in RdV,
          (* \/ Mwait(p, mutex)
           \/ Mtest(p,mutex)   *)  
           
-Spec == Init /\ [][Next]_<<pc, Communications,memory,pcState,waitedQueue,testMemory >>
+Spec == Init /\ [][Next]_<<pc, Communications,memory,pcState,waitedQueue >>
 -----------------------------------------------------------------------------------------------------------------
 
 ------------------------------------------
