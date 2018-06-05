@@ -7,7 +7,7 @@
                    current state
                         |
                         |
-                        | actions
+                        | action
                         |
                         v
                    next state 
