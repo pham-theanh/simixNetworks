@@ -23,7 +23,7 @@
     An action can use funtions that are defined before it for computaions. 
    *)
    
-(*-----------------------------------Declare variables, contants for building and running model--------------------------------*)
+(*-----------------------------------Declare variables, constants for building and running model--------------------------------*)
     
 EXTENDS Integers , Naturals, Sequences, FiniteSets
 
@@ -457,5 +457,5 @@ THEOREM \forall p1, p2 \in Actors: \forall comm1, comm2 \in Addr:
 (*Independence Theorems that are relalated to synchoronization primitives are presented here    *)
 =============================================================================
 \* Modification History
-\* Last modified Tue Jun 05 18:35:08 CEST 2018 by diep-chi
+\* Last modified Tue Jun 05 18:36:12 CEST 2018 by diep-chi
 \* Created Fri Jan 12 18:32:38 CET 2018 by diep-chi
