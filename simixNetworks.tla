@@ -20,10 +20,10 @@
     + each actor[Aid] has a Requests[Aid] including all the id of mutexes required by the actor   
    
   - There are 9 actions: AsyncSend, AsyncReceive, Wait, Test, Local, MutexAsyncLock, MutexUnLock, MutexTest and MutexWait.
-    An action can use funtions that are defined before it for computaions. 
+    An action can use funtions that are defined before it for computations. 
    *)
    
-(*-----------------------------------Declare variables, constants for building and running model--------------------------------*)
+(*-----------------------------------DECLARE VARIABLES, CONSTANTS FOR BUILDING AND RUNNING MODEL--------------------------------*)
     
 EXTENDS Integers , Naturals, Sequences, FiniteSets
 
@@ -54,7 +54,7 @@ Comm == [id:Nat,
          data_src:Addr,
          data_dst:Addr]
 ------------------------------------------------------------------------------------------------------------
-                               (*Define 4 functions that will be used in the actions*)
+                               (*DEFINE 4 FUNCTIONS THAT WILL BE USED IN THE ACTIONS*)
            
 (* getIndex(e,q) gives the position of e in sequence q *)           
 
@@ -457,5 +457,5 @@ THEOREM \forall p1, p2 \in Actors: \forall comm1, comm2 \in Addr:
 (*Independence Theorems that are relalated to synchoronization primitives are presented here    *)
 =============================================================================
 \* Modification History
-\* Last modified Tue Jun 05 18:36:12 CEST 2018 by diep-chi
+\* Last modified Tue Jun 05 18:39:37 CEST 2018 by diep-chi
 \* Created Fri Jan 12 18:32:38 CET 2018 by diep-chi
