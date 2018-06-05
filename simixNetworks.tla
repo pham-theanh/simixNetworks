@@ -2,7 +2,7 @@
 
 
 (* This specification formally describes (build formal model of) programs/system that are simulated in SimGrid, 
-    it focus on modeling the states and actions of the system, firing an actions at a current state leads to a next state
+    it focus on modeling the states and actions of the system, firing an action at a current state leads to a next state
                    
                    current state
                         |
