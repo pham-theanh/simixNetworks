@@ -16,7 +16,7 @@
     + Communications is used to store all communications in the system
     + memory  that is indexed by id of Actors, can be used to store id of communications, id of requests
     + pc is indexed by id of Actors, presents program counter of actors, each time after firing one action the pc change to pc' 
-    + each mutex[mid] in the model has a waitinQueue[mid] that hepls the mutex remember which actors have require on it
+    + each mutex[mid] in the model has a waitinQueue[mid] that hepls the mutex remember which actors have require it
     + each actor[Aid] has a Requests[Aid] including all the id of mutexes required by the actor   
    
   - There are 9 actions: AsyncSend, AsyncReceive, Wait, Test, Local, MutexAsyncLock, MutexUnLock, MutexTest and MutexWait.
