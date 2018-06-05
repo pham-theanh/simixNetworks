@@ -14,7 +14,7 @@
                    
   - A state is represented by 4 variables: Communications, memory, pc, waitingQueue and Requests
     + Communications is used to store all communications in the system
-    + memory  that is indexed by id of Actors stores id of communications, id of requests
+    + memory  that is indexed by id of Actors, can be used to store id of communications, id of requests
     + pc is indexed by id of Actors, presents program counter of actors, each time after firing one action the pc change to pc' 
     + each mutex[mid] in the model has a waitinQueue[mid] that hepls the mutex remember which actors have require on it
     + each actor[Aid] has a Requests[Aid] including all the id of mutexes required by the actor   
