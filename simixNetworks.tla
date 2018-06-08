@@ -105,10 +105,7 @@ Local(Aid) ==
 (* -----------------COMMUNICATION SUBSYSTEM -----------------------------------------------------------------------------------------*)
 
 
-
-(* ---- The two following variables mailbox and CommBuffers are updated aumatically each time a transition is fired --- *)
-
-(* mailbox(mb) is a mailbox including all pending requests posted on it *)
+(* mailbox(mb) gives all pending requests posted on it *)
 mailbox(mb) == {comm \in Communications : comm.mb=mb /\ comm.status \in {"send","receive"}}
 
 
