@@ -95,7 +95,6 @@ mailbox(mb) == {comm \in Communications : comm.mb=mb /\ comm.status \in {"send",
 CommBuffers(Aid) == 
   {c.data_src: c \in { y \in Communications: y.status /= "done" /\ (y.src = Aid \/ y.dst = Aid)}} 
 \cup {c.data_dst: c \in { y \in Communications: y.status /= "done" /\ (y.src = Aid \/ y.dst = Aid)}} 
-\cup {req.add : req \in Requests[Aid]}
 
 
 
