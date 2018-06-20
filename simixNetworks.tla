@@ -162,6 +162,7 @@ AsyncSend(Aid, mb, data_r, comm_r) ==
                                        !.src = Aid,
                                        !.data_src = data_r]}
           /\ Mailboxes' = [Mailboxes EXCEPT ![mb] = Mailboxes[mb] \ {request}]
+          /\ memory' = [memory EXCEPT ![Aid][comm_r] = request.id] 
           /\ UNCHANGED <<comId>>    
                
      
@@ -217,6 +218,7 @@ AsyncReceive(Aid, mb, data_r, comm_r) ==
                                        !.dst = Aid,
                                        !.data_dst = data_r]}
           /\ Mailboxes' = [Mailboxes EXCEPT ![mb] = Mailboxes[mb] \ {request}]
+          /\ memory' = [memory EXCEPT ![Aid][comm_r] = request.id]
           /\ UNCHANGED <<comId>>    
                
      (* Otherwise (i.e. no matching AsyncSend communication request exists),  
@@ -511,5 +513,5 @@ THEOREM \forall p1, p2 \in Actors: \forall comms1, comms2 \in SUBSET Addr: \fora
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Jun 20 17:12:35 CEST 2018 by diep-chi
+\* Last modified Wed Jun 20 17:23:59 CEST 2018 by diep-chi
 \* Created Fri Jan 12 18:32:38 CET 2018 by diep-chi
