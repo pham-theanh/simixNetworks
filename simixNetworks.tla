@@ -46,21 +46,6 @@ ASSUME Partition({SendIns, ReceiveIns, WaitIns, TestIns, LocalIns , LockIns, Unl
 Instr ==UNION {SendIns, ReceiveIns, WaitIns, TestIns, LocalIns ,LockIns, UnlockIns, MwaitIns, MtestIns}
 
 
-(* Comm type is declared as a structure *)  
-Comm == [id:Nat,
-         mb:NbMailbox,
-         status:{"ready","done"},
-         src:Actors,
-         dst:Actors,
-         data_src:Addr,
-         data_dst:Addr]
-
-(* Let's keep everything in the right domains, just for checking *)
-TypeInv == /\ Communications \subseteq Comm
-           /\ memory \in [Actors -> [Addr -> Nat]]
-           /\ pc \in [Actors -> Instr] 
-
-
 (* Initially there are no Communications, no requests on the mutexes, memory has random values *)
 
 Init == /\ Communications = {}
@@ -76,6 +61,24 @@ Init == /\ Communications = {}
         (*/\ pc = CHOOSE f \in [Actors -> Instr] : TRUE*)
         /\ pc = [a \in Actors |-> "lock"] 
         /\ comId = 0
+
+
+
+
+(* Comm type is declared as a structure *)  
+Comm == [id:Nat,
+         mb:NbMailbox,
+         status:{"ready","done"},
+         src:Actors,
+         dst:Actors,
+         data_src:Addr,
+         data_dst:Addr]
+
+(* Let's keep everything in the right domains, just for checking *)
+TypeInv == /\ Communications \subseteq Comm
+           /\ memory \in [Actors -> [Addr -> Nat]]
+           /\ pc \in [Actors -> Instr] 
+
 
                            (*-------------------- FUNCTIONS -------------------*)
  
@@ -508,5 +511,5 @@ THEOREM \forall p1, p2 \in Actors: \forall comms1, comms2 \in SUBSET Addr: \fora
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Jun 20 17:10:29 CEST 2018 by diep-chi
+\* Last modified Wed Jun 20 17:12:35 CEST 2018 by diep-chi
 \* Created Fri Jan 12 18:32:38 CET 2018 by diep-chi
