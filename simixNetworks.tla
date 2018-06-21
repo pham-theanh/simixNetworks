@@ -114,7 +114,7 @@ isMember(m, q) == IF \E i \in (1..Len(q)): m = q[i] THEN TRUE
 
 
 (* A local computaion of Actor <Aid> can change the value of this Actor's memory at any address, 
-    but not where communication's ids are strored      *)
+    but not where communications data  are strored      *)
 
 Local(Aid) ==
     /\ Aid \in Actors
@@ -513,5 +513,5 @@ THEOREM \forall p1, p2 \in Actors: \forall comms1, comms2 \in SUBSET Addr: \fora
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Jun 20 17:23:59 CEST 2018 by diep-chi
+\* Last modified Thu Jun 21 10:12:27 CEST 2018 by diep-chi
 \* Created Fri Jan 12 18:32:38 CET 2018 by diep-chi
