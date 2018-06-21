@@ -82,13 +82,7 @@ TypeInv == /\ Communications \subseteq Comm
 
                            (*-------------------- FUNCTIONS -------------------*)
  
-(* CommBuffers(Aid) returns the set of memory addresses of a Actor being used in a communication *)
-CommBuffers(Aid) == {req.data_src: req \in { r \in Mailboxes[Aid] : r.status = "send"} } 
-               \cup {req.data_dst: req \in { r \in Mailboxes[Aid] : r.status = "receive"} } 
-               \cup {c.data_src: c \in { y \in Communications: y.status = "ready" /\ (y.src = Aid \/ y.dst = Aid)}} 
-               \cup {c.data_dst: c \in { y \in Communications: y.status = "ready" /\ (y.src = Aid \/ y.dst = Aid)}}
-
-                           
+               
                            
 
 (*---  FUNCTIONS ON SEQUENCES USED FOR FIFO QUEUES -- *)
@@ -121,10 +115,7 @@ Local(Aid) ==
     /\ pc[Aid] \in LocalIns
     
     \*change value of memory[Aid][a], set {0,1,2,3,4,5} just for running model
-    /\ memory' \in [Actors -> [Addr -> {0,1,2,3,4,5}]]
-    /\ \forall p \in Actors, a \in Addr: memory'[p][a] /= memory[p][a]
-    \*ensure that memory[Aid][a] is not where actor Aid strores communication
-       => p = Aid /\ a \notin CommBuffers(Aid)
+    /\ memory' \in [Actors -> [Addr -> Nat]]
     /\ \E ins \in Instr : pc' = [pc EXCEPT ![Aid] = ins]
     /\ UNCHANGED <<Communications, waitingQueue, Requests, Mailboxes, comId >>
 
@@ -513,5 +504,5 @@ THEOREM \forall p1, p2 \in Actors: \forall comms1, comms2 \in SUBSET Addr: \fora
 
 =============================================================================
 \* Modification History
-\* Last modified Thu Jun 21 10:12:27 CEST 2018 by diep-chi
+\* Last modified Thu Jun 21 10:44:08 CEST 2018 by diep-chi
 \* Created Fri Jan 12 18:32:38 CET 2018 by diep-chi
