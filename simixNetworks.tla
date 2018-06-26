@@ -27,20 +27,21 @@
    *)
    
 (*---------------------------- GENERAL CONSTANTS, VARIABLES, FUNCTIONS  --------------------------------------------*)
-    
+
+
 EXTENDS Integers , Naturals, Sequences, FiniteSets
 
-CONSTANTS (* Sets containing the names of all the actors, mailboxes and mutexes *)
+CONSTANTS (*Sets containing the names of all the actors, mailboxes and mutexes *)
           ActorsIds, MailboxesIds, MutexesIds,
-         (* Set of all existing Memory addresses. Each actor has its own private Memory, indexed by these addresses *)
+          (*Set of all existing Memory addresses. Each actor has its own private Memory, indexed by these addresses *)
           Addresses,
-         (* The test action writes a boolean in Memory *)
-         ValTrue, ValFalse,
-          (* Existing Actions Types *)
-         SendIns, ReceiveIns, WaitIns, TestIns, LocalIns, LockIns, UnlockIns,  MwaitIns, MtestIns
+          (*The test action writes a boolean in Memory *)
+          ValTrue, ValFalse,
+          (*Existing Actions Types *)
+          SendIns, ReceiveIns, WaitIns, TestIns, LocalIns,
+          LockIns, UnlockIns,  MwaitIns, MtestIns
           
-VARIABLES Communications, (* Set of all ongoing comm MtRequests.  *)
-          Memory, pc,  Mutexes, MtRequests, Mailboxes, commId
+VARIABLES Communications, Memory, pc,  Mutexes, MtRequests, Mailboxes, commId
 
 NoActor == CHOOSE a : a \notin ActorsIds
 NoAddr == CHOOSE addr : addr \notin Addresses
@@ -49,9 +50,11 @@ ASSUME ValTrue \in Nat
 ASSUME ValFalse \in Nat
 
 Partition(S) == \forall x,y \in S : x \cap y /= {} => x = y
-ASSUME Partition({SendIns, ReceiveIns, WaitIns, TestIns, LocalIns , LockIns, UnlockIns, MwaitIns, MtestIns}) 
+ASSUME Partition({SendIns, ReceiveIns, WaitIns, TestIns,
+                  LocalIns , LockIns, UnlockIns, MwaitIns, MtestIns}) 
 
-Instr ==UNION {SendIns, ReceiveIns, WaitIns, TestIns, LocalIns, LockIns, UnlockIns, MwaitIns, MtestIns}
+Instr ==UNION {SendIns, ReceiveIns, WaitIns, TestIns,
+               LocalIns, LockIns, UnlockIns, MwaitIns, MtestIns}
 
 
 (* Initially there are no Communications, no MtRequests on the mutexes, Memory has random values *)
@@ -123,7 +126,6 @@ isMember(m, q) == IF \E i \in (1..Len(q)): m = q[i] THEN TRUE
 Local(aId) ==
     /\ aId \in ActorsIds
     /\ pc[aId] \in LocalIns
-    
     \*change value of Memory[aId][a], set {0,1,2,3,4,5} just for running model
     /\ Memory' \in [ActorsIds -> [Addresses -> Nat]]
     /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
@@ -385,8 +387,8 @@ MutexTest(aId, req_addr, testResult_Addr) ==
                                     (*INDICATE NEXT ACTIONS *)
                                     
 (* Next indicates the possible actions that could be fired at a state  *)
-Next == \exists actor \in ActorsIds, mb \in MailboxesIds, mutex \in MutexesIds, data_addr \in Addresses,
-        comm_addr \in Addresses, req_addr \in Addresses, result_addr \in Addresses, comm_addrs \in SUBSET Addresses:
+Next == \exists actor \in ActorsIds, mb \in MailboxesIds, mutex \in MutexesIds, data_addr,
+        comm_addr, req_addr, result_addr \in Addresses, comm_addrs \in SUBSET Addresses:
                 
           \/ AsyncSend(actor, mb, data_addr, comm_addr)
           \/ AsyncReceive(actor, mb, data_addr, comm_addr)
@@ -413,21 +415,18 @@ I(A,B) == ENABLED A /\ ENABLED B => /\ A => (ENABLED B)'
 (* Independence theorems for Communications *)
 
 (* AsyncSend and AsyncReceive are always independent *)
-THEOREM \forall a1, a2 \in ActorsIds: \forall mb1, mb2 \in MailboxesIds: 
-        \forall data1, data2, comm1, comm2 \in Addresses:
+THEOREM \forall a1, a2 \in ActorsIds, mb1, mb2 \in MailboxesIds, data1, data2, comm1, comm2 \in Addresses:
         (* /\ a1 /= a2   this is not necessary  since if identical, they cannot be both enabled *)
         (* those hypothesis are not necessary since enabledness is already in the definition on independence 
           /\ ENABLED AsyncSend(a1, mb1, data1, comm1)                      
           /\ ENABLED AsyncReceive(a2, mb2, data2, comm2) 
           *)
-      TRUE  =>  I(AsyncSend(a1, mb1, data1, comm1), 
-              AsyncReceive(a2, mb2, data2, comm2))
+             I(AsyncSend(a1, mb1, data1, comm1), AsyncReceive(a2, mb2, data2, comm2))
 
 (* AsyncSend and Wait are independent when they concern different communications *)
 (* !!! Unsure about conditions for independence *)
 
-THEOREM \forall a1, a2 \in ActorsIds: \forall data, comm1, comm2 \in Addresses:
-        \forall mb \in MailboxesIds: \exists c \in Communications:
+THEOREM \forall a1, a2 \in ActorsIds, data, comm1, comm2 \in Addresses, mb \in MailboxesIds: \exists c \in Communications:
         /\ a1 /= a2        (* a1 and a2 are different Actors *)
         /\ c.id = Memory[a2][comm2]                          (*  c is the communication with id comm2 *)
         /\ \/ (a1 /= c.dst /\ a1 /= c.src)                   (*  either a1 is neither src nor dst of c *)
@@ -442,8 +441,7 @@ THEOREM \forall a1, a2 \in ActorsIds: \forall data, comm1, comm2 \in Addresses:
 
 
 (* two AsyncSend are independent if they concern (different processes and) different mailboxes *)
-THEOREM \forall a1, a2 \in ActorsIds: \forall mb1, mb2 \in MailboxesIds: 
-        \forall data1, data2, comm1, comm2 \in Addresses:
+THEOREM \forall a1, a2 \in ActorsIds, mb1, mb2 \in MailboxesIds, data1, data2, comm1, comm2 \in Addresses:
         (* /\ a1 /= a2   this is unnecessary since they would not be both enabled if equal *)
         /\ mb1 /= mb2
         (* /\ ENABLED AsyncSend(a1, mb1, data1, comm1) 
@@ -452,8 +450,7 @@ THEOREM \forall a1, a2 \in ActorsIds: \forall mb1, mb2 \in MailboxesIds:
         => I(AsyncSend(a1, mb1, data1, comm1),
              AsyncSend(a2, mb2, data2, comm2))
 (* two AsyncReceive are independent if thy concern (different processes and) different mailboxes *)
-THEOREM \forall a1, a2 \in ActorsIds: \forall mb1, mb2 \in MailboxesIds: 
-        \forall data1, data2, comm1, comm2 \in Addresses:
+THEOREM \forall a1, a2 \in ActorsIds, mb1, mb2 \in MailboxesIds, data1, data2, comm1, comm2 \in Addresses:
         (* /\ a1 /= a2  *)
         /\ mb1 /= mb2
         (* /\ ENABLED AsyncReceive(a1, mb1, data1, comm1)
@@ -464,45 +461,64 @@ THEOREM \forall a1, a2 \in ActorsIds: \forall mb1, mb2 \in MailboxesIds:
 
 
 (* two Wait actions are always independent  *)
-THEOREM \forall a1, a2 \in ActorsIds: \forall comm_addrs1, comm_addrs2 \in SUBSET Addresses:
+THEOREM \forall a1, a2 \in ActorsIds, comm_addrs1, comm_addrs2 \in SUBSET Addresses:
         (* /\ a1 /= a2 *)
        (* /\ comm1 = comm2
         /\ ENABLED Wait(a1, comm1)
         /\ ENABLED Wait(a2, comm2) *)
-      TRUE => I(WaitAny(a1, comm_addrs1), WaitAny(a2, comm_addrs2))
+      I(WaitAny(a1, comm_addrs1), WaitAny(a2, comm_addrs2))
       
 (* two Test actions are always independent  *)
-THEOREM \forall a1, a2 \in ActorsIds: \forall comm_addrs1, comm_addrs2 \in SUBSET Addresses: \forall test_r1, test_r2 \in Addresses:
+THEOREM \forall a1, a2 \in ActorsIds, comm_addrs1, comm_addrs2 \in SUBSET Addresses, test_r1, test_r2 \in Addresses:
         (* /\ a1 /= a2 *)
        (* /\ comm1 = comm2
         /\ ENABLED Wait(a1, comm1)
         /\ ENABLED Wait(a2, comm2) *)
-      TRUE => I(TestAny(a1, comm_addrs1,test_r1), TestAny(a2, comm_addrs2, test_r2))   
+        I(TestAny(a1, comm_addrs1,test_r1), TestAny(a2, comm_addrs2, test_r2))   
       
 (* a Test and a Wait are always independent  *)
-THEOREM \forall a1, a2 \in ActorsIds: \forall comm_addrs1, comm_addrs2 \in SUBSET Addresses: \forall test_r  \in Addresses:
+THEOREM \forall a1, a2 \in ActorsIds, comm_addrs1, comm_addrs2 \in SUBSET Addresses, test_r  \in Addresses:
         (* /\ a1 /= a2 *)
        (* /\ comm1 = comm2
         /\ ENABLED Wait(a1, comm1)
         /\ ENABLED Wait(a2, comm2) *)
-      TRUE => I(TestAny(a2, comm_addrs2, test_r),WaitAny(a1, comm_addrs1)) 
+       I(TestAny(a2, comm_addrs2, test_r),WaitAny(a1, comm_addrs1)) 
               
       
-         
-(*!!!! Similar theorems should also hold for two Test actions *)
-(* to be done ... *)
 
-(* Independence Theorems for synchoronization actions *) 
-(* to be done ... *)
 
-(* Independence theorems between communication and synchronization actions *)
-(* to be done ... *)
+THEOREM \forall a1, a2 \in ActorsIds, mt1, mt2 \in MutexesIds, req1, req2 \in Addresses:
+        mt1 /= mt2 => I(MutexAsyncLock(a1, mt1, req1), MutexAsyncLock(a2, mt2, req2))
+ 
+ 
+THEOREM \forall a1, a2 \in ActorsIds, mt1, mt2 \in MutexesIds, req1 \in Addresses:
+           I(MutexAsyncLock(a1, mt1, req1), MutexUnlock(a2, mt2))
 
-(* Independence Theorems for Local actions and all other actions *)
-(* to be done ... *)
+ 
+THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, req,  data, comm, test_r \in Addresses,
+         mb \in MailboxesIds, comm_addrs \in SUBSET Addresses:
+           /\ I(MutexAsyncLock(a1, mt, req), AsyncSend(a2, mb, data, comm))
+           /\ I(MutexAsyncLock(a1, mt, req), AsyncReceive(a2, mb, data, comm))  
+           /\ I(MutexAsyncLock(a1, mt, req), WaitAny(a2, comm_addrs))   
+           /\ I(MutexAsyncLock(a1, mt, req), TestAny(a2, comm_addrs, test_r))   
+           /\ I(MutexUnlock(a1, mt), AsyncSend(a2, mb, data, comm))
+           /\ I(MutexUnlock(a1, mt), AsyncReceive(a2, mb, data, comm))  
+           /\ I(MutexUnlock(a1, mt), WaitAny(a2, comm_addrs))   
+           /\ I(MutexUnlock(a1, mt), TestAny(a2, comm_addrs, test_r))   
+                    
+THEOREM \forall a1, a2 \in ActorsIds, mt1, mt2 \in MutexesIds, req1, req2, test_r1, test_r2 \in Addresses,  
+           comm_addrs1 , comm_addrs2 \in SUBSET Addresses:
+           /\ I(MutexWait(a1, req1), MutexWait(a2, req2))
+           /\ I(MutexWait(a1, req1), MutexTest(a2, req1, test_r1))
+           /\ I(MutexTest(a1, req1, test_r1), MutexTest(a2, req2, test_r2))
+       
+ THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, req1, req2, test_r \in Addresses:
+         /\ I(MutexAsyncLock(a1, mt, req1), MutexWait(a2, req2))
+         /\ I(MutexAsyncLock(a1, mt, req1), MutexTest(a1, req2, test_r))
+
 
 
 =============================================================================
 \* Modification History
-\* Last modified Mon Jun 25 15:31:12 CEST 2018 by diep-chi
+\* Last modified Tue Jun 26 17:23:40 CEST 2018 by diep-chi
 \* Created Fri Jan 12 18:32:38 CET 2018 by diep-chi
