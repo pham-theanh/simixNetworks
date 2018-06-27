@@ -120,8 +120,7 @@ isMember(m, q) == IF \E i \in (1..Len(q)): m = q[i] THEN TRUE
 (* ---------------------------------------------------- LOCAL SUBSYSTEM ---------------------------------------------*)
 
 
-(* A local computaion of Actor <aId> can change the value of this Actor's Memory at any address, 
-    but not where communications data  are strored      *)
+(* A local computaion of Actor <aId> can change the value of this Actor's Memory at any address *)
 
 Local(aId) ==
     /\ aId \in ActorsIds
@@ -410,7 +409,7 @@ I(A,B) == ENABLED A /\ ENABLED B => /\ A => (ENABLED B)'
                                     /\ A \cdot B \equiv B \cdot A
 
 -----------------------------------------------------------------------------------------------------------------
-(* ------------------------- INDEPENDENCE THEOREMS --------------------------------------------------------------*)
+(* ------------------------------------------ INDEPENDENCE THEOREMS-----------------------------------------------------*)
 
 (* Independence theorems for Communications *)
 
@@ -423,9 +422,42 @@ THEOREM \forall a1, a2 \in ActorsIds, mb1, mb2 \in MailboxesIds, data1, data2, c
           *)
              I(AsyncSend(a1, mb1, data1, comm1), AsyncReceive(a2, mb2, data2, comm2))
 
-(* AsyncSend and Wait are independent when they concern different communications *)
+(* two AsyncSend  or two AsyncReceive are independent if they concern different mailboxes *)
+THEOREM \forall a1, a2 \in ActorsIds, mb1, mb2 \in MailboxesIds, data1, data2, comm1, comm2 \in Addresses:
+        (* /\ a1 /= a2  *)
+        /\ mb1 /= mb2
+        (* /\ ENABLED AsyncReceive(a1, mb1, data1, comm1)
+           /\ ENABLED AsyncReceive(a2, mb2, data2, comm2) 
+           *)
+         => /\ I(AsyncSend(a1, mb1, data1, comm1), AsyncSend(a2, mb2, data2, comm2)) 
+            /\ I(AsyncReceive(a1, mb1, data1, comm1),  AsyncReceive(a2, mb2, data2, comm2))
+
+
+
+
+(* two WaitAny actions, or two TestAny actions, or a WaitAny action and a TestAny are independent*)
+THEOREM \forall a1, a2 \in ActorsIds, comm_addrs1, comm_addrs2 \in SUBSET Addresses, test_r1, test_r2 \in Addresses:
+        (* /\ a1 /= a2 *)
+       (* /\ comm1 = comm2
+        /\ ENABLED Wait(a1, comm1)
+        /\ ENABLED Wait(a2, comm2) *)
+       /\ I(WaitAny(a1, comm_addrs1), WaitAny(a2, comm_addrs2))
+       /\ I(TestAny(a1, comm_addrs1, test_r1), TestAny(a2, comm_addrs2, test_r2))   
+       /\ I(WaitAny(a1, comm_addrs1), TestAny(a2, comm_addrs2, test_r2))
+  
+
+(* A WaitAny action or a TestAny action and a AsyncSend action or a 
+AsyncReceive action are independent if they concern different communication. *)
 (* !!! Unsure about conditions for independence *)
 
+THEOREM \forall a1, a2 \in ActorsIds, data, comm1, comm2, test_r \in Addresses, mb \in MailboxesIds:
+              /\ a1 /= a2
+              /\ Memory[a1][comm1] /=   Memory[a1][comm2]
+                 =>  /\ I(AsyncSend(a1, mb, data, comm1), WaitAny(a2, comm2)) 
+                     /\ I(AsyncSend(a1, mb, data, comm1), TestAny(a2, {comm2}, test_r ))
+                     /\ I(AsyncReceive(a1, mb, data, comm1), WaitAny(a2, comm2)) 
+                     /\ I(AsyncReceive(a1, mb, data, comm1), TestAny(a2, {comm2}, test_r ))  
+(*
 THEOREM \forall a1, a2 \in ActorsIds, data, comm1, comm2 \in Addresses, mb \in MailboxesIds: \exists c \in Communications:
         /\ a1 /= a2        (* a1 and a2 are different Actors *)
         /\ c.id = Memory[a2][comm2]                          (*  c is the communication with id comm2 *)
@@ -436,64 +468,27 @@ THEOREM \forall a1, a2 \in ActorsIds, data, comm1, comm2 \in Addresses, mb \in M
             *)
          =>  I(AsyncSend(a1, mb, data, comm1), WaitAny(a2, comm2)) 
 
-(* !!!!! Similar theorems should hold for AsyncSend and Test, AsyncReceive and Wait, AsyncReceive and Test *)
-(* to be done ... *)
-
-
-(* two AsyncSend are independent if they concern (different processes and) different mailboxes *)
-THEOREM \forall a1, a2 \in ActorsIds, mb1, mb2 \in MailboxesIds, data1, data2, comm1, comm2 \in Addresses:
-        (* /\ a1 /= a2   this is unnecessary since they would not be both enabled if equal *)
-        /\ mb1 /= mb2
-        (* /\ ENABLED AsyncSend(a1, mb1, data1, comm1) 
-           /\ ENABLED AsyncSend(a2, mb2, data2, comm2)  
-           *)
-        => I(AsyncSend(a1, mb1, data1, comm1),
-             AsyncSend(a2, mb2, data2, comm2))
-(* two AsyncReceive are independent if thy concern (different processes and) different mailboxes *)
-THEOREM \forall a1, a2 \in ActorsIds, mb1, mb2 \in MailboxesIds, data1, data2, comm1, comm2 \in Addresses:
-        (* /\ a1 /= a2  *)
-        /\ mb1 /= mb2
-        (* /\ ENABLED AsyncReceive(a1, mb1, data1, comm1)
-           /\ ENABLED AsyncReceive(a2, mb2, data2, comm2) 
-           *)
-        => I(AsyncReceive(a1, mb1, data1, comm1),
-             AsyncReceive(a2, mb2, data2, comm2))
-
-
-(* two Wait actions are always independent  *)
-THEOREM \forall a1, a2 \in ActorsIds, comm_addrs1, comm_addrs2 \in SUBSET Addresses:
-        (* /\ a1 /= a2 *)
-       (* /\ comm1 = comm2
-        /\ ENABLED Wait(a1, comm1)
-        /\ ENABLED Wait(a2, comm2) *)
-      I(WaitAny(a1, comm_addrs1), WaitAny(a2, comm_addrs2))
-      
-(* two Test actions are always independent  *)
-THEOREM \forall a1, a2 \in ActorsIds, comm_addrs1, comm_addrs2 \in SUBSET Addresses, test_r1, test_r2 \in Addresses:
-        (* /\ a1 /= a2 *)
-       (* /\ comm1 = comm2
-        /\ ENABLED Wait(a1, comm1)
-        /\ ENABLED Wait(a2, comm2) *)
-        I(TestAny(a1, comm_addrs1,test_r1), TestAny(a2, comm_addrs2, test_r2))   
-      
-(* a Test and a Wait are always independent  *)
-THEOREM \forall a1, a2 \in ActorsIds, comm_addrs1, comm_addrs2 \in SUBSET Addresses, test_r  \in Addresses:
-        (* /\ a1 /= a2 *)
-       (* /\ comm1 = comm2
-        /\ ENABLED Wait(a1, comm1)
-        /\ ENABLED Wait(a2, comm2) *)
-       I(TestAny(a2, comm_addrs2, test_r),WaitAny(a1, comm_addrs1)) 
-              
-      
-
-
+THEOREM \forall a1, a2 \in ActorsIds, data, comm1, comm2 \in Addresses, mb \in MailboxesIds: \exists c \in Communications:
+        /\ a1 /= a2        (* a1 and a2 are different Actors *)
+        /\ c.id = Memory[a2][comm2]                          (*  c is the communication with id comm2 *)
+        /\ \/ (a1 /= c.dst /\ a1 /= c.src)                   (*  either a1 is neither src nor dst of c *)
+           \/ (comm1 /= c.data_src /\ comm1 /= c.data_dst)   (*  or     comm1 is neither src or dst addr of c *) 
+        (*  /\ ENABLED AsyncSend(a1, mb, data, comm1) 
+            /\ ENABLED Wait(a2, comm2) 
+            *)
+         =>  I(AsyncSend(a1, mb, data, comm1), WaitAny(a2, comm2)) 
+*)
+(*two MutexAsyncLock actions are independent if they concerrn differnet mutexes*)
 THEOREM \forall a1, a2 \in ActorsIds, mt1, mt2 \in MutexesIds, req1, req2 \in Addresses:
         mt1 /= mt2 => I(MutexAsyncLock(a1, mt1, req1), MutexAsyncLock(a2, mt2, req2))
  
+ (* MutexAsyncLock actions and MutexUnlock action are independent*)
  
 THEOREM \forall a1, a2 \in ActorsIds, mt1, mt2 \in MutexesIds, req1 \in Addresses:
            I(MutexAsyncLock(a1, mt1, req1), MutexUnlock(a2, mt2))
 
+ (*A MutexAsyncLock action or MutexUnlock action is independent with 
+ a AsyncSend action, a AsyncReceive action, a TestAny action or a WaitAny action. *)
  
 THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, req,  data, comm, test_r \in Addresses,
          mb \in MailboxesIds, comm_addrs \in SUBSET Addresses:
@@ -505,20 +500,39 @@ THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, req,  data, comm, test_
            /\ I(MutexUnlock(a1, mt), AsyncReceive(a2, mb, data, comm))  
            /\ I(MutexUnlock(a1, mt), WaitAny(a2, comm_addrs))   
            /\ I(MutexUnlock(a1, mt), TestAny(a2, comm_addrs, test_r))   
-                    
+       
+ (*Two MutexWait actions, two MutexTest actions, a MutexWait action and MutexTest action are independent*)             
 THEOREM \forall a1, a2 \in ActorsIds, mt1, mt2 \in MutexesIds, req1, req2, test_r1, test_r2 \in Addresses,  
            comm_addrs1 , comm_addrs2 \in SUBSET Addresses:
            /\ I(MutexWait(a1, req1), MutexWait(a2, req2))
            /\ I(MutexWait(a1, req1), MutexTest(a2, req1, test_r1))
            /\ I(MutexTest(a1, req1, test_r1), MutexTest(a2, req2, test_r2))
-       
+           
+ (* A MutexAsyncLock action and a MutexWait action or MutexTest action are independent*)
  THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, req1, req2, test_r \in Addresses:
          /\ I(MutexAsyncLock(a1, mt, req1), MutexWait(a2, req2))
          /\ I(MutexAsyncLock(a1, mt, req1), MutexTest(a1, req2, test_r))
 
+ (* A MutexUnlock action and a MutexWait action or MutexTest action are independent if concern different mutexes*)
+THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, test_r, req \in Addresses:
+            Memory[a1][req] /= mt =>  /\ I(MutexUnlock(a1, mt), MutexWait(a2, req))
+                                      /\ I(MutexUnlock(a1, mt), MutexTest(a2, req, test_r))
 
-
+ (*A LocalComputation action is independent with all other actions*)
+ THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, req,  data, comm, test_r \in Addresses,
+         mb \in MailboxesIds, comm_addrs \in SUBSET Addresses:
+           /\ I(Local(a1), AsyncSend(a2, mb, data, comm))
+           /\ I(Local(a1), AsyncReceive(a2, mb, data, comm))  
+           /\ I(Local(a1), WaitAny(a2, comm_addrs))   
+           /\ I(Local(a1), TestAny(a2, comm_addrs, test_r))   
+           /\ I(Local(a1), MutexWait(a2, req))
+           /\ I(Local(a1), MutexTest(a2, req, test_r))
+           /\ I(Local(a1), MutexUnlock(a2, mt))
+           /\ I(Local(a1), MutexUnlock(a2, mt))
+ 
+ 
+ 
 =============================================================================
 \* Modification History
-\* Last modified Tue Jun 26 17:23:40 CEST 2018 by diep-chi
+\* Last modified Wed Jun 27 11:16:31 CEST 2018 by diep-chi
 \* Created Fri Jan 12 18:32:38 CET 2018 by diep-chi
