@@ -76,10 +76,10 @@ Init == /\ Communications = {}
 (* Comm type is declared as a structure *)  
 Comm == [id:Nat,
          status:{"send", "receive", "done"},
-         src:  ActorsIds \cup NoActor  ,
-         dst:  ActorsIds  \cup NoActor,
-         data_src:   Addresses \cup  NoAddr ,
-         data_dst:  Addresses \cup  NoAddr]
+         src:  ActorsIds \cup {NoActor}  ,
+         dst:  ActorsIds  \cup {NoActor},
+         data_src:   Addresses \cup { NoAddr } ,
+         data_dst:  Addresses \cup { NoAddr }]
 
 (* Invariants to check everything in the right domains*)
 TypeInv == /\ \forall c \in Communications : c \in Comm /\ c.status = "done" 
@@ -543,5 +543,5 @@ THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, req,  data, comm, test_
  
 =============================================================================
 \* Modification History
-\* Last modified Wed Jul 04 00:02:23 CEST 2018 by diep-chi
+\* Last modified Wed Jul 04 00:21:11 CEST 2018 by diep-chi
 \* Created Fri Jan 12 18:32:38 CET 2018 by diep-chi
