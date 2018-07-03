@@ -401,9 +401,11 @@ Spec == Init /\ [][Next]_<< pc, Communications, Memory, Mutexes, MtRequests, Mai
 -----------------------------------------------------------------------------------------------------------------
 
 (* Definition of the Independence relation *)
-I(A,B) ==  ENABLED ( A /\ B ) => /\ A => (ENABLED B)'
-                                 /\ B => (ENABLED A)'
-                                 /\ A \cdot B \equiv B \cdot A
+I(A,B) == /\ ENABLED A =>   /\ ENABLED B => (A => (ENABLED B)')
+                            /\ (A => (ENABLED B)') =>  ENABLED B 
+          /\ (ENABLED  A /\ ENABLED B)  => /\ A => (ENABLED B)'
+                                           /\ B => (ENABLED A)'
+                                           /\ A \cdot B \equiv B \cdot A
 
 -----------------------------------------------------------------------------------------------------------------
 (* ------------------------------------------ INDEPENDENCE THEOREMS-----------------------------------------------------*)
@@ -530,5 +532,5 @@ THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, test_r, req \in Address
  
 =============================================================================
 \* Modification History
-\* Last modified Tue Jul 03 16:07:32 CEST 2018 by diep-chi
+\* Last modified Tue Jul 03 16:36:37 CEST 2018 by diep-chi
 \* Created Fri Jan 12 18:32:38 CET 2018 by diep-chi
