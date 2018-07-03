@@ -480,21 +480,7 @@ THEOREM \forall a1, a2 \in ActorsIds, mt1, mt2 \in MutexesIds, req1, req2 \in Ad
 THEOREM \forall a1, a2 \in ActorsIds, mt1, mt2 \in MutexesIds, req1 \in Addresses:
         /\ a1 /= a2 =>  I(MutexAsyncLock(a1, mt1, req1), MutexUnlock(a2, mt2))
 
- (*A MutexAsyncLock action or MutexUnlock action is independent with 
- a AsyncSend action, a AsyncReceive action, a TestAny action or a WaitAny action. *)
- 
-THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, req,  data, comm, test_r \in Addresses,
-         mbId\in MailboxesIds, comm_addrs \in SUBSET Addresses:
-           a1 /= a2 =>
-           /\ I(MutexAsyncLock(a1, mt, req), AsyncSend(a2, mbId, data, comm))
-           /\ I(MutexAsyncLock(a1, mt, req), AsyncReceive(a2, mbId, data, comm))  
-           /\ I(MutexAsyncLock(a1, mt, req), WaitAny(a2, comm_addrs))   
-           /\ I(MutexAsyncLock(a1, mt, req), TestAny(a2, comm_addrs, test_r))   
-           /\ I(MutexUnlock(a1, mt), AsyncSend(a2, mbId, data, comm))
-           /\ I(MutexUnlock(a1, mt), AsyncReceive(a2, mbId, data, comm))  
-           /\ I(MutexUnlock(a1, mt), WaitAny(a2, comm_addrs))   
-           /\ I(MutexUnlock(a1, mt), TestAny(a2, comm_addrs, test_r))   
-       
+      
  (*Two MutexWait actions, two MutexTest actions, a MutexWait action and MutexTest action are independent*)             
 THEOREM \forall a1, a2 \in ActorsIds, mt1, mt2 \in MutexesIds, req1, req2, test_r1, test_r2 \in Addresses,  
            comm_addrs1 , comm_addrs2 \in SUBSET Addresses:
@@ -515,6 +501,33 @@ THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, test_r, req \in Address
             /\ Memory[a1][req] /= mt => /\ I(MutexUnlock(a1, mt), MutexWait(a2, req))
                                         /\ I(MutexUnlock(a1, mt), MutexTest(a2, req, test_r))
 
+
+ (*A synchoronization action (MutexAsyncLock, MutexUnlock, MutexWait, MutexTest) is independent with 
+ a communication action (AsyncSend, AsyncReceive, TestAny, WaitAny) if they are performed by different actors*)
+ 
+THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, req,  data, comm, test_r1,  test_r2 \in Addresses,
+         mbId\in MailboxesIds, comm_addrs \in SUBSET Addresses:
+           a1 /= a2 =>
+           /\ I(MutexAsyncLock(a1, mt, req), AsyncSend(a2, mbId, data, comm))
+           /\ I(MutexAsyncLock(a1, mt, req), AsyncReceive(a2, mbId, data, comm))  
+           /\ I(MutexAsyncLock(a1, mt, req), WaitAny(a2, comm_addrs))   
+           /\ I(MutexAsyncLock(a1, mt, req), TestAny(a2, comm_addrs, test_r1))   
+           
+           /\ I(MutexUnlock(a1, mt), AsyncSend(a2, mbId, data, comm))
+           /\ I(MutexUnlock(a1, mt), AsyncReceive(a2, mbId, data, comm))  
+           /\ I(MutexUnlock(a1, mt), WaitAny(a2, comm_addrs))   
+           /\ I(MutexUnlock(a1, mt), TestAny(a2, comm_addrs, test_r1))
+              
+           /\ I(MutexWait(a1, req), AsyncSend(a2, mbId, data, comm))
+           /\ I(MutexWait(a1, req), AsyncReceive(a2, mbId, data, comm))
+           /\ I(MutexWait(a1, req), WaitAny(a2, comm_addrs))
+           /\ I(MutexWait(a1, req), TestAny(a2, comm_addrs, test_r1))
+          
+           /\ I(MutexTest(a1, req, test_r1), AsyncSend(a2, mbId, data, comm))
+           /\ I(MutexTest(a1, req, test_r1), AsyncReceive(a2, mbId, data, comm))
+           /\ I(MutexTest(a1, req, test_r1), WaitAny(a2, comm_addrs))   
+           /\ I(MutexTest(a1, req, test_r1), TestAny(a2, comm_addrs, test_r2))   
+           
  (*A LocalComputation action is independent with all other actions*)
  THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, req,  data, comm, test_r \in Addresses,
          mbId\in MailboxesIds, comm_addrs \in SUBSET Addresses:
@@ -532,5 +545,5 @@ THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, test_r, req \in Address
  
 =============================================================================
 \* Modification History
-\* Last modified Tue Jul 03 16:36:37 CEST 2018 by diep-chi
+\* Last modified Tue Jul 03 17:34:23 CEST 2018 by diep-chi
 \* Created Fri Jan 12 18:32:38 CET 2018 by diep-chi
