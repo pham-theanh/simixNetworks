@@ -75,23 +75,20 @@ Init == /\ Communications = {}
 
 (* Comm type is declared as a structure *)  
 Comm == [id:Nat,
-         status:{"done"},
-         src:  ActorsIds ,
-         dst:  ActorsIds ,
-         data_src:  Addresses ,
-         data_dst:  Addresses]
+         status:{"send", "receive", "done"},
+         src:  ActorsIds \cup NoActor  ,
+         dst:  ActorsIds  \cup NoActor,
+         data_src:   Addresses \cup  NoAddr ,
+         data_dst:  Addresses \cup  NoAddr]
 
 (* Invariants to check everything in the right domains*)
-TypeInv == /\ \forall c \in Communications : c \in Comm
+TypeInv == /\ \forall c \in Communications : c \in Comm /\ c.status = "done" 
            /\ \forall mbId \in MailboxesIds: ~\exists c \in DOMAIN Mailboxes[mbId]:
-                         \/ Mailboxes[mbId][c].status \notin {"send", "receive"}  
+                         \/ /\  Mailboxes[mbId][c] \notin Comm 
+                            /\  Mailboxes[mbId][c].status \notin {"send", "receive"}  
                          \/ \exists c1 \in DOMAIN Mailboxes[mbId] :  Mailboxes[mbId][c].status /=  Mailboxes[mbId][c1].status
                                                      
            /\ \forall mId \in MutexesIds: \forall id \in  DOMAIN Mutexes[mId]: Mutexes[mId][id] \in ActorsIds
-
-           /\ Memory \in [ActorsIds -> [Addresses -> Nat]]
-           
-           /\ pc \in [ActorsIds -> Instr] 
 
 
                            (*-------------------- FUNCTIONS -------------------*)
@@ -397,6 +394,7 @@ Next == \exists actor \in ActorsIds, mbId\in MailboxesIds, mutex \in MutexesIds,
           \/ MutexUnlock(actor, mutex) *)
           
 check == ~\exists mbId\in MailboxesIds : Cardinality(Communications) > 0
+
 Spec == Init /\ [][Next]_<< pc, Communications, Memory, Mutexes, MtRequests, Mailboxes, commId >>
 -----------------------------------------------------------------------------------------------------------------
 
@@ -545,5 +543,5 @@ THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, req,  data, comm, test_
  
 =============================================================================
 \* Modification History
-\* Last modified Tue Jul 03 17:34:23 CEST 2018 by diep-chi
+\* Last modified Wed Jul 04 00:02:23 CEST 2018 by diep-chi
 \* Created Fri Jan 12 18:32:38 CET 2018 by diep-chi
