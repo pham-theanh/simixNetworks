@@ -87,7 +87,7 @@ TypeInv == /\ \forall c \in Communications : c \in Comm /\ c.status = "done"
            /\ \forall mbId \in MailboxesIds: ~\exists c \in DOMAIN Mailboxes[mbId]:
                          \/ Mailboxes[mbId][c] \notin Comm
                          \/ Mailboxes[mbId][c].status \notin {"send", "receive"}  
-                         \/ \exists c1 \in DOMAIN Mailboxes[mbId] :  Mailboxes[mbId][c].status /=  Mailboxes[mbId][c1].status
+                         \/ \exists c1 \in DOMAIN Mailboxes[mbId] : Mailboxes[mbId][c].status /= Mailboxes[mbId][c1].status
                                                      
            /\ \forall mId \in MutexesIds: \forall id \in  DOMAIN Mutexes[mId]: Mutexes[mId][id] \in ActorsIds
 
@@ -388,7 +388,7 @@ Next == \exists actor \in ActorsIds, mbId\in MailboxesIds, mutex \in MutexesIds,
           \/ AsyncReceive(actor, mbId, data_addr, comm_addr)
           \/ WaitAny(actor, comm_addrs)
           \/ TestAny(actor, comm_addrs, result_addr)
-     (*      \/ Local(actor) 
+     (*   \/ Local(actor) 
          \/ MutexAsyncLock(actor, mutex, req_addr)
           \/ MutexWait(actor, req_addr)
           \/ MutexTest(actor,req_addr, result_addr) 
@@ -399,8 +399,11 @@ Spec == Init /\ [][Next]_<< pc, Communications, Memory, Mutexes, MtRequests, Mai
 -----------------------------------------------------------------------------------------------------------------
 
 (* Definition of the Independence relation *)
+
+           (*Executing A does not enable or disable B*) 
 I(A,B) == /\ ENABLED A =>   /\ ENABLED B => (A => (ENABLED B)')
                             /\ (A => (ENABLED B)') =>  ENABLED B 
+           (*if both A and B are enabled, their execution can be commuted*)
           /\ (ENABLED  A /\ ENABLED B)  => /\ A => (ENABLED B)'
                                            /\ B => (ENABLED A)'
                                            /\ A \cdot B \equiv B \cdot A
@@ -543,5 +546,5 @@ THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, req,  data, comm, test_
  
 =============================================================================
 \* Modification History
-\* Last modified Wed Jul 04 10:01:09 CEST 2018 by diep-chi
+\* Last modified Wed Jul 04 10:26:47 CEST 2018 by diep-chi
 \* Created Fri Jan 12 18:32:38 CET 2018 by diep-chi
