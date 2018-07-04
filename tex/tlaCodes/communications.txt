@@ -1,0 +1,13 @@
+\@x{\@s{32.8} {\VARIABLES} Communications}%
+\@pvspace{8.0pt}%
+\@x{\@s{32.8} Comm \.{\defeq} [ id \.{:} Nat ,\,}%
+\@x{\@s{32.8} mb \.{:} NbMailbox ,\,}%
+\@x{\@s{32.8} status \.{:} \{\@w{ready} ,\,\@w{done} \} ,\,}%
+\@x{\@s{32.8} src\@s{0.55} \.{:} Actors ,\,}%
+\@x{\@s{32.8} dst \.{:} Actors ,\,}%
+\@x{\@s{32.8} data\_src\@s{0.55} \.{:} Addr ,\,}%
+\@x{\@s{32.8} data\_dst \.{:} Addr ]}%
+\@pvspace{8.0pt}%
+\@x{\@s{32.8} TypeInv \.{\defeq} \.{\land} Communications \.{\subseteq} Comm}%
+\@pvspace{8.0pt}%
+\@x{\@s{32.8} Init \.{\defeq} \.{\land} Communications \.{=} \{ \}}%

@@ -1,0 +1,37 @@
+\@x{ MutexAsyncLock ( Aid ,\, mid ,\, req\_a ) \.{\defeq}}%
+\@x{ \.{\land} Aid \.{\in} Actors}%
+\@x{ \.{\land} pc [ Aid ] \.{\in} LockIns}%
+\@x{ \.{\land} mid \.{\in} Mutexes}%
+\@x{ \.{\land} req\_a \.{\in} Addr}%
+\@x{\@s{16.26}}%
+\@y{%
+  If Actor <Aid> has no pending request on mutex <mid>, create a new one 
+}%
+\@xx{}%
+ \@x{ \.{\land} \.{\lor} \.{\land} {\lnot} isMember ( Aid ,\, waitingQueue [
+ mid ] )}%
+ \@x{\@s{43.79} \.{\land}\@s{4.1} Requests \.{'}\@s{4.1} \.{=} [ Requests
+ {\EXCEPT} {\bang} [ Aid ] \.{=} Requests [ Aid ] \.{\cup} \{ mid \} ]}%
+ \@x{\@s{43.79} \.{\land}\@s{4.09} memory \.{'} \.{=} [ memory {\EXCEPT}
+ {\bang} [ Aid ] [ req\_a ] \.{=} mid ]}%
+ \@x{\@s{43.79} \.{\land} waitingQueue \.{'} \.{=} [ waitingQueue {\EXCEPT}
+ {\bang} [ mid ] \.{=}}%
+\@x{\@s{138.83} Append ( waitingQueue [ mid ] ,\, Aid ) ]}%
+\@x{\@s{16.26}}%
+\@y{%
+ Otherwise i.e. actor <Aid> already has a pending request on mutex <mid>,
+ keep the variables unchanged          
+}%
+\@xx{}%
+\@x{\@s{12.16} \.{\lor} \.{\land} isMember ( Aid ,\, waitingQueue [ mid ] )}%
+ \@x{\@s{24.33} \.{\land} {\UNCHANGED} {\langle} waitingQueue ,\,\@s{4.1}
+ memory ,\, Requests {\rangle}}%
+\@x{}%
+\@y{%
+  MutexAsyncLock is never blocking, in any case, pc[Aid] is incremented 
+}%
+\@xx{}%
+ \@x{ \.{\land} \E\, ins \.{\in} Instr \.{:} pc \.{'} \.{=} [ pc {\EXCEPT}
+ {\bang} [ Aid ] \.{=} ins ]}%
+ \@x{ \.{\land} {\UNCHANGED} {\langle} Communications ,\, Mailboxes ,\, comId
+ {\rangle}}%

@@ -1,0 +1,27 @@
+\@x{ MutexTest ( Aid ,\, req\_a ,\, test\_a ) \.{\defeq}}%
+\@x{ \.{\land} Aid \.{\in} Actors}%
+\@x{ \.{\land} pc [ Aid ] \.{\in} MtestIns}%
+\@x{ \.{\land} test\_a \.{\in} Addr}%
+ \@x{ \.{\land}\@s{4.1} \E\, req \.{\in}\@s{4.1} Requests [ Aid ] \.{:} req
+ \.{=} memory [ Aid ] [ req\_a ] \.{\land}}%
+\@x{\@s{28.27}}%
+\@y{%
+  If the actor is the owner then return true 
+}%
+\@xx{}%
+\@x{\@s{36.47} \.{\lor} \.{\land} isHead ( Aid ,\, waitingQueue [ req ] )}%
+ \@x{\@s{48.64} \.{\land} memory \.{'} \.{=} [ memory {\EXCEPT} {\bang} [ Aid
+ ] [ test\_a ] \.{=} ValTrue ]}%
+\@x{\@s{28.27}}%
+\@y{%
+ Else if it is not the onwer then return false 
+}%
+\@xx{}%
+ \@x{\@s{36.47} \.{\lor} \.{\land} {\lnot} isHead ( Aid ,\, waitingQueue [ req
+ ] )}%
+ \@x{\@s{48.64} \.{\land} memory \.{'} \.{=} [ memory {\EXCEPT} {\bang} [ Aid
+ ] [ test\_a ] \.{=} ValFalse ]}%
+ \@x{ \.{\land} \E\, ins \.{\in} Instr \.{:} pc \.{'} \.{=} [ pc {\EXCEPT}
+ {\bang} [ Aid ] \.{=} ins ]}%
+ \@x{ \.{\land} {\UNCHANGED} {\langle} waitingQueue ,\, Requests ,\,
+ Communications ,\, Mailboxes ,\, comId {\rangle}}%

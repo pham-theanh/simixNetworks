@@ -1,0 +1,9 @@
+\@x{ Local ( aId ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} aId \.{\in} ActorsIds}%
+\@x{\@s{16.4} \.{\land} pc [ aId ] \.{\in} LocalIns}%
+\@x{\@s{16.4} \.{\land} Memory \.{'} \.{\in} [ ActorsIds \.{\rightarrow} [
+Addresses \.{\rightarrow} Nat ] ]}%
+\@x{\@s{16.4} \.{\land} \E\, ins \.{\in} Instr \.{:} pc \.{'} \.{=} [ pc
+{\EXCEPT} {\bang} [ aId ] \.{=} ins ]}%
+\@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} Communications ,\, Mutexes ,\,
+MtRequests ,\, Mailboxes ,\, commId {\rangle}}%

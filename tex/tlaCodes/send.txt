@@ -1,0 +1,56 @@
+\@x{ AsyncSend ( Aid ,\, mb ,\, data\_r ,\, comm\_r ) \.{\defeq}}%
+\@x{\@s{4.1} \.{\land} Aid \.{\in} Actors}%
+\@x{\@s{4.1} \.{\land} mb \.{\in} NbMailbox}%
+\@x{\@s{4.1} \.{\land} data\_r\@s{7.55} \.{\in} Addr}%
+\@x{\@s{4.1} \.{\land} comm\_r \.{\in} Addr}%
+\@x{\@s{4.1} \.{\land} pc [ Aid ] \.{\in} SendIns}%
+\begin{lcom}{0}%
+\begin{cpar}{0}{F}{F}{0}{0}{}%
+ If a matching "receive" request exists in the 
+ mailbox(mb), choose the oldest one and
+ complete the Sender fields and set the communication to the
+ "ready" state 
+\end{cpar}%
+\end{lcom}%
+ \@x{\@s{4.1} \.{\land} \.{\lor} \exists\, request \.{\in} Mailboxes [ mb ]
+ \.{:}}%
+\@x{\@s{32.53} \.{\land} request . status \.{=}\@w{receive}}%
+ \@x{\@s{32.53} \.{\land} \forall\, d \.{\in} Mailboxes [ mb ] \.{:} d .
+ status \.{=}\@w{receive} \.{\implies} request . id \.{\leq} d . id}%
+\@x{\@s{32.53} \.{\land} Communications \.{'} \.{=}}%
+\@x{\@s{52.89} Communications\@s{8.2} \.{\cup} \{ [ request {\EXCEPT}}%
+\@x{\@s{97.99} {\bang} . status \.{=}\@w{ready} ,\,}%
+\@x{\@s{97.99} {\bang} . src \.{=} Aid ,\,}%
+\@x{\@s{97.99} {\bang} . data\_src \.{=} data\_r ] \}}%
+ \@x{\@s{32.53} \.{\land} Mailboxes \.{'} \.{=} [ Mailboxes {\EXCEPT} {\bang}
+ [ mb ] \.{=} Mailboxes [ mb ] \.{\,\backslash\,} \{ request \} ]}%
+ \@x{\@s{32.53} \.{\land} memory \.{'} \.{=} [ memory {\EXCEPT} {\bang} [ Aid
+ ] [ comm\_r ] \.{=} request . id ]}%
+\@x{\@s{32.53} \.{\land} {\UNCHANGED} {\langle} comId {\rangle}}%
+\begin{lcom}{0}%
+\begin{cpar}{0}{F}{F}{0}{0}{}%
+ Otherwise (i.e. no matching AsyncReceive communication request
+ exists,       create a AsyncSend request
+         and push it in the set Communications. 
+\end{cpar}%
+\end{lcom}%
+ \@x{\@s{20.5} \.{\lor} \.{\land} {\lnot} \exists\, req \.{\in} Mailboxes [ mb
+ ] \.{:} req . status \.{=}\@w{receive}}%
+\@x{\@s{32.66} \.{\land} \.{\LET} request \.{\defeq}}%
+\@x{\@s{104.91} [ id \.{\mapsto} comId ,\,}%
+\@x{\@s{104.91} mb \.{\mapsto} mb ,\,}%
+\@x{\@s{104.91} status \.{\mapsto}\@w{send} ,\,}%
+\@x{\@s{104.91} src\@s{0.55} \.{\mapsto} Aid ,\,}%
+\@x{\@s{104.91} dst \.{\mapsto} NoActor ,\,}%
+\@x{\@s{104.91} data\_src\@s{0.55} \.{\mapsto} data\_r ,\,}%
+\@x{\@s{104.91} data\_dst \.{\mapsto} NoAddr ]}%
+\@x{\@s{44.83} \.{\IN}}%
+ \@x{\@s{65.33} \.{\land} Mailboxes \.{'} \.{=} [ Mailboxes {\EXCEPT} {\bang}
+ [ mb ] \.{=} Mailboxes [ mb ] \.{\cup} \{ request \} ]}%
+ \@x{\@s{65.33} \.{\land} memory \.{'} \.{=} [ memory {\EXCEPT} {\bang} [ Aid
+ ] [ comm\_r ] \.{=} request . id ]}%
+\@x{\@s{65.33} \.{\land} {\UNCHANGED} {\langle} Communications {\rangle}}%
+\@x{\@s{65.33} \.{\land} comId \.{'} \.{=} comId \.{+} 1}%
+ \@x{ \.{\land} \E\, ins \.{\in} Instr \.{:} pc \.{'}\@s{13.80} \.{=} [ pc
+ {\EXCEPT} {\bang} [ Aid ] \.{=} ins ]}%
+\@x{ \.{\land} {\UNCHANGED} {\langle} waitingQueue ,\, Requests {\rangle}}%

@@ -1,0 +1,20 @@
+\@x{ MutexUnlock ( Aid ,\, mid ) \.{\defeq}}%
+\@x{ \.{\land} Aid\@s{1.09} \.{\in} Actors}%
+\@x{ \.{\land} mid \.{\in} Mutexes}%
+\@x{ \.{\land} pc [ Aid ] \.{\in} UnlockIns}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{%
+ If <Aid> makes a "valid" unlock on <mid> (either owner or not) remove any
+ linking between them 
+}%
+\@xx{}%
+\@x{ \.{\land} isMember ( Aid ,\, waitingQueue [ mid ] )}%
+ \@x{ \.{\land} waitingQueue \.{'} \.{=} [ waitingQueue {\EXCEPT} {\bang} [
+ mid ] \.{=}\@s{4.1} Remove ( Aid ,\, waitingQueue [ mid ] ) ]}%
+ \@x{ \.{\land} Requests \.{'} \.{=} [ Requests {\EXCEPT} {\bang} [ Aid ]
+ \.{=} Requests [ Aid ] \.{\,\backslash\,} \{ mid \} ]}%
+ \@x{ \.{\land} \E\, ins \.{\in} Instr \.{:} pc \.{'} \.{=} [ pc {\EXCEPT}
+ {\bang} [ Aid ] \.{=} ins ]}%
+ \@x{ \.{\land} {\UNCHANGED} {\langle} memory ,\, Communications ,\, Mailboxes
+ ,\, comId {\rangle}}%

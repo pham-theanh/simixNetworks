@@ -1,0 +1,14 @@
+\@x{ {\CONSTANTS} MailboxesIds}%
+\@pvspace{8.0pt}%
+\@x{ {\VARIABLES} Mailboxes}%
+\@pvspace{8.0pt}%
+
+\@x{ TypeInv \.{\defeq}  \forall\,  mbId \.{\in} MailboxesIds\@s{0.19} \.{:}
+\forall\, c \.{\in} Mailboxes [ mbId ] \.{:} c \.{\in} Comm\@s{4.1}
+\.{\land} \.{\lor} c . status \.{=}\@w{send} }%
+\@x{\@s{342.09} \.{\lor} c . status \.{=}\@w{receive}}%
+\@pvspace{8.0pt}%
+
+
+ \@x{ Init \.{\defeq} \.{\land} Mailboxes \.{=} [ i \.{\in} MailboxesIds
+ \.{\mapsto} \{ \} ]}%

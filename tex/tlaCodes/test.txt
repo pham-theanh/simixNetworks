@@ -1,0 +1,51 @@
+\@x{ TestAny ( Aid ,\, comms ,\, ret\_r ) \.{\defeq}}%
+\@x{ \.{\land} Aid \.{\in} Actors}%
+\@x{ \.{\land} ret\_r \.{\in} Addr}%
+\@x{ \.{\land} pc [ Aid ] \.{\in} TestIns}%
+ \@x{ \.{\land} \.{\lor} \E\, comm\_r \.{\in} comms ,\, c \.{\in}
+ Communications \.{:} c . id \.{=}\@s{4.1} memory [ Aid ] [ comm\_r ]
+ \.{\land}}%
+\@x{\@s{24.33}}%
+\@y{%
+  If the communication is "ready" the data is transfered, return ValTrue 
+}%
+\@xx{}%
+\@x{\@s{24.33} \.{\lor} \.{\land} c . status \.{=}\@w{ready}}%
+ \@x{\@s{69.66} \.{\land} memory \.{'} \.{=} [ memory {\EXCEPT} {\bang} [ c .
+ dst ] [ c . data\_dst ] \.{=}}%
+\@x{\@s{201.66} memory [ c . src ] [ c . data\_src ] ,\,}%
+\@x{\@s{201.66} {\bang} [ Aid ] [ ret\_r ] \.{=} ValTrue ]}%
+\@x{\@s{69.66} \.{\land} Communications \.{'} \.{=}}%
+ \@x{\@s{102.33} ( Communications \.{\,\backslash\,} \{ c \} ) \.{\cup} \{ [ c
+ {\EXCEPT} {\bang} . status \.{=}\@w{done} ] \}}%
+\@x{\@s{24.33}}%
+\@y{%
+ Else if the cummunication is already done, keep Communications unchanged,
+ return ValTrue 
+}%
+\@xx{}%
+\@x{\@s{40.73} \.{\lor} \.{\land} c . status \.{=}\@w{done}}%
+ \@x{\@s{65.06} \.{\land} memory \.{'} \.{=} [ memory {\EXCEPT} {\bang} [ Aid
+ ] [ ret\_r ] \.{=} ValTrue ]}%
+\@x{\@s{65.06} \.{\land} {\UNCHANGED} {\langle} Communications {\rangle}}%
+\@pvspace{8.0pt}%
+ \@x{\@s{12.16} \.{\lor} {\lnot} \exists\, comm\_r \.{\in} comms ,\, c \.{\in}
+ Communications \.{:} c . id \.{=} memory [ Aid ] [ comm\_r ]}%
+\@x{\@s{20.36}}%
+\@y{%
+ If no communication is "ready" or "done", return ValFalse 
+}%
+\@xx{}%
+\@x{\@s{65.46} \.{\land} c . status \.{\in} \{\@w{ready} ,\,\@w{done} \}}%
+ \@x{\@s{65.46} \.{\land} memory \.{'} \.{=} [ memory {\EXCEPT} {\bang} [ Aid
+ ] [ ret\_r ] \.{=} ValFalse ]}%
+\@x{\@s{65.46} \.{\land} {\UNCHANGED} {\langle} Communications {\rangle}}%
+\@x{}%
+\@y{%
+  Test is non-blocking since in all cases pc[AId] is incremented 
+}%
+\@xx{}%
+ \@x{ \.{\land} \E\, ins \.{\in} Instr \.{:} pc \.{'} \.{=} [ pc {\EXCEPT}
+ {\bang} [ Aid ] \.{=} ins ]}%
+ \@x{ \.{\land} {\UNCHANGED} {\langle} waitingQueue ,\, Requests ,\, Mailboxes
+ ,\, comId {\rangle}}%

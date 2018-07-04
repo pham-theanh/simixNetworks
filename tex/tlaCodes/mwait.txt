@@ -1,0 +1,10 @@
+\@x{ MutexWait ( Aid ,\, req\_a ) \.{\defeq}}%
+\@x{ \.{\land} Aid \.{\in} Actors}%
+\@x{ \.{\land} req\_a \.{\in} Addr}%
+\@x{ \.{\land} pc [ Aid ] \.{\in} MwaitIns}%
+ \@x{ \.{\land} \E\, req\@s{0.34} \.{\in} Requests [ Aid ] \.{:} req \.{=}
+ memory [ Aid ] [ req\_a ] \.{\land} isHead ( Aid ,\, waitingQueue [ req ] )}%
+ \@x{ \.{\land} \E\, ins \.{\in} Instr \.{:} pc \.{'} \.{=} [ pc {\EXCEPT}
+ {\bang} [ Aid ] \.{=} ins ]}%
+ \@x{ \.{\land} {\UNCHANGED} {\langle} memory ,\, waitingQueue ,\, Requests
+ ,\, Communications ,\, Mailboxes ,\, comId {\rangle}}%

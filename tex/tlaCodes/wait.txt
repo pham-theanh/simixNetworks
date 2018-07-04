@@ -1,0 +1,32 @@
+
+\@x{ WaitAny ( Aid ,\, comms ) \.{\defeq}}%
+\@x{\@s{4.1} \.{\land} Aid \.{\in} Actors}%
+\@x{\@s{4.1} \.{\land} pc [ Aid ] \.{\in} WaitIns}%
+\@x{\@s{4.1} \.{\land} \E\, comm\_r \.{\in} comms ,\, c \.{\in}
+Communications \.{:} c . id \.{=}\@s{4.1} memory [ Aid ] [ comm\_r ]
+\.{\land}}%
+\@x{\@s{28.27} \.{\lor} \.{\land} c . status \.{=}\@w{ready}}%
+\@x{\@s{28.27}}%
+\@y{%
+Data is transfered to destination, then update status of the communication
+to "done" 
+}%
+\@xx{}%
+\@x{\@s{40.57} \.{\land} memory \.{'} \.{=} [ memory {\EXCEPT} {\bang} [ c .
+dst ] [ c . data\_dst ] \.{=}}%
+\@x{\@s{28.27} memory [ c . src ] [ c . data\_src ] ]}%
+\@x{\@s{40.57} \.{\land}\@s{14.97} Communications \.{'} \.{=} (
+Communications \.{\,\backslash\,} \{ c \} ) \.{\cup} \{ [ c {\EXCEPT}
+{\bang} . status \.{=}\@w{done} ] \}}%
+\@x{\@s{28.27} \.{\lor} \.{\land} c . status \.{=}\@w{done}}%
+\@x{\@s{4.1} \.{\land} {\UNCHANGED} {\langle} memory ,\, Communications
+{\rangle}}%
+\@x{}%
+\@y{%
+In both cases, pc[Aid] is incremented 
+}%
+\@xx{}%
+\@x{\@s{4.1} \.{\land} \E\, ins \.{\in} Instr \.{:} pc \.{'} \.{=} [ pc
+{\EXCEPT} {\bang} [ Aid ] \.{=} ins ]}%
+\@x{\@s{4.1} \.{\land} {\UNCHANGED} {\langle} waitingQueue ,\, Requests ,\,
+Mailboxes ,\, comId {\rangle}}%

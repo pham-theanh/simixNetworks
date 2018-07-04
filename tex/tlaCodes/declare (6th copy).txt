@@ -1,0 +1,50 @@
+\@x{ {\EXTENDS} Integers ,\, Naturals ,\, Sequences ,\, FiniteSets}%
+\@pvspace{8.0pt}%
+\@x{ {\CONSTANTS}}%
+\@y{%
+Sets containing the names of all the actors, mailboxes and mutexes
+}%
+\@xx{}%
+\@x{\@s{54.75} ActorsIds ,\, MailboxesIds ,\, MutexesIds ,\,}%
+\@x{\@s{54.75}}%
+\@y{%
+Set of all existing \ensuremath{Memory} addresses. Each actor has its own
+private \ensuremath{Memory}, indexed by these addresses
+}%
+\@xx{}%
+\@x{\@s{54.75} Addresses ,\,}%
+\@x{\@s{54.75}}%
+\@y{%
+The test action writes a boolean in \ensuremath{Memory
+}}%
+\@xx{}%
+\@x{\@s{54.75} ValTrue ,\, ValFalse ,\,}%
+\@x{\@s{54.75}}%
+\@y{%
+Existing Actions Types
+}%
+\@xx{}%
+\@x{\@s{54.75} SendIns ,\, ReceiveIns ,\, WaitIns ,\, TestIns ,\, LocalIns
+,\,}%
+\@x{\@s{54.75} LockIns ,\, UnlockIns ,\,\@s{4.1} MwaitIns ,\, MtestIns}%
+\@pvspace{8.0pt}%
+\@x{ {\VARIABLES} Communications ,\, Memory ,\, pc ,\,\@s{4.1} Mutexes ,\,
+MtRequests ,\, Mailboxes ,\, commId}%
+\@pvspace{8.0pt}%
+\@x{ NoActor \.{\defeq} {\CHOOSE} a \.{:} a \.{\notin} ActorsIds}%
+\@x{ NoAddr \.{\defeq} {\CHOOSE} addr \.{:} addr \.{\notin} Addresses}%
+\@pvspace{8.0pt}%
+\@x{ {\ASSUME} ValTrue \.{\in} Nat}%
+\@x{ {\ASSUME} ValFalse \.{\in} Nat}%
+\@pvspace{8.0pt}%
+\@x{ Partition ( S ) \.{\defeq} \forall\, x ,\, y \.{\in} S \.{:} x \.{\cap}
+y \.{\neq} \{ \} \.{\implies} x \.{=} y}%
+\@x{ {\ASSUME} Partition ( \{ SendIns ,\, ReceiveIns ,\, WaitIns ,\, TestIns
+,\,}%
+\@x{\@s{87.52} LocalIns ,\, LockIns ,\, UnlockIns ,\, MwaitIns ,\, MtestIns
+\} )}%
+\@pvspace{8.0pt}%
+\@x{ Instr \.{\defeq} {\UNION} \{ SendIns ,\, ReceiveIns ,\, WaitIns ,\,
+TestIns ,\,}%
+\@x{\@s{77.62} LocalIns ,\, LockIns ,\, UnlockIns ,\, MwaitIns ,\, MtestIns
+\}}%
