@@ -447,7 +447,7 @@ AsyncReceive action are independent if they concern different communication. *)
 
 THEOREM \forall a1, a2 \in ActorsIds, data, comm1, comm2, test_r \in Addresses, mbId\in MailboxesIds:
               /\ a1 /= a2
-              /\ Memory[a1][comm1] /=   Memory[a1][comm2]
+              /\ Memory[a1][comm1] /=   Memory[a2][comm2]
                  =>  /\ I( WaitAny(a1, {comm1}), AsyncSend(a2, mbId, data, comm2)) 
                      /\ I( WaitAny(a1, {comm1}), AsyncReceive(a2, mbId, data, comm2)) 
                      /\ I(TestAny(a1, {comm1}, test_r ), AsyncSend(a2, mbId, data, comm2))
