@@ -1,4 +1,4 @@
------------------------------------------ MODULE networkSpecification -------------------------------------------------
+---------------------------- MODULE AbtractModel ----------------------------
 
 
 (*This specification formally describes (builds the formal model of) programs/distributed systems that are simulated in SimGrid. 
@@ -42,7 +42,7 @@ CONSTANTS (*Sets containing the names of all the actors, mailboxes and mutexes *
           SendIns, ReceiveIns, WaitIns, TestIns, LocalIns,
           LockIns, UnlockIns,  MwaitIns, MtestIns
           
-VARIABLES Communications, Memory, pc,  Mutexes, MtRequests, Mailboxes, commId
+VARIABLES Communications, Memory, pc,  Mutexes, MtRequests, Mailboxes,  commIds 
 
 NoActor == CHOOSE a : a \notin ActorsIds
 NoAddr == CHOOSE addr : addr \notin Addresses
@@ -52,10 +52,10 @@ ASSUME ValFalse \in Nat
 
 Partition(S) == \forall x,y \in S : x \cap y /= {} => x = y
 ASSUME Partition({SendIns, ReceiveIns, WaitIns, TestIns
-                 (*, LocalIns , LockIns, UnlockIns, MwaitIns, MtestIns*)}) 
+                 , LocalIns , LockIns, UnlockIns, MwaitIns, MtestIns}) 
 
 Instr ==UNION {SendIns, ReceiveIns, WaitIns, TestIns
-              (*, LocalIns , LockIns, UnlockIns, MwaitIns, MtestIns*)}
+              , LocalIns , LockIns, UnlockIns, MwaitIns, MtestIns}
 
 
 (* Initially there are no Communications, no MtRequests on the mutexes, Memory has random values *)
@@ -68,11 +68,8 @@ Init == /\ Communications = { }
         /\ Mailboxes = [i \in MailboxesIds |-> <<>>] 
         /\ MtRequests = [i \in ActorsIds |-> {}]
         (*/\ pc = CHOOSE f \in [ActorsIds -> Instr] : TRUE*)
-        /\ pc = [a \in ActorsIds |-> "lock"] 
-        /\ commId = 0
-
-
-
+        /\ pc = [a \in ActorsIds |-> "send"] 
+        /\ commIds =  [i \in ActorsIds |-> i*10000]
 (* Comm type is declared as a structure *)  
 Comm == [id:Nat,
          status:{"send", "receive", "done"},
@@ -126,7 +123,7 @@ Local(aId) ==
     \*change value of Memory[aId][a], set {0,1,2,3,4,5} just for running model
     /\ Memory' \in [ActorsIds -> [Addresses -> {0,1,2,3,4,5}]]
     /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
-    /\ UNCHANGED <<Communications, Mutexes, MtRequests, Mailboxes, commId >>
+    /\ UNCHANGED <<Communications, Mutexes, MtRequests, Mailboxes, commIds >>
 
 
 (* ---------------------------------------------COMMUNICATION SUBSYSTEM -----------------------------------*)
@@ -146,7 +143,7 @@ Local(aId) ==
     - comm_addr: the address in the AsyncSender's Memory where to store the communication id *)
  
 AsyncSend(aId, mbId, data_addr, comm_addr) == 
-  /\ aId \in ActorsIds
+  /\ aId \in ActorsIds 
   /\ mbId\in MailboxesIds
   /\ data_addr \in Addresses
   /\ comm_addr \in Addresses
@@ -157,7 +154,7 @@ AsyncSend(aId, mbId, data_addr, comm_addr) ==
            \/ /\ Len(Mailboxes[mbId]) > 0 
               /\ Head(Mailboxes[mbId]).status = "send" 
         /\ LET comm ==  
-                 [id |-> commId, 
+                 [id |-> commIds[aId], 
                   status |-> "send", 
                   src |-> aId,
                   dst |-> NoActor, 
@@ -167,7 +164,7 @@ AsyncSend(aId, mbId, data_addr, comm_addr) ==
                 /\ Mailboxes' = [Mailboxes EXCEPT ![mbId] = Append(Mailboxes[mbId],comm)]
                 /\ Memory' = [Memory EXCEPT ![aId][comm_addr] = comm.id] 
                 /\ UNCHANGED <<Communications>>    
-                /\ commId' = commId+1
+                /\ commIds' = [commIds EXCEPT ![aId] = commIds[aId] +1 ]
                 
         (*Else the mailbox is not empty *)
      \/ /\ Len(Mailboxes[mbId]) >  0
@@ -184,9 +181,10 @@ AsyncSend(aId, mbId, data_addr, comm_addr) ==
                  /\ Memory' = [Memory EXCEPT ![comm.dst][comm.data_dst] = 
                                                     Memory[aId][data_addr]]
                  /\ Memory' = [Memory EXCEPT ![aId][comm_addr] = comm.id] 
-                 /\ UNCHANGED <<commId>>
+                 /\ UNCHANGED <<commIds>>
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
   /\ UNCHANGED << Mutexes, MtRequests>> 
+
 
 (* AsyncReceive(aId,mbId,data_addr,comm_addr): the actor <aId> sends a "receive" request to the mailbox <mbId>.
    If there is a pending "send" request on the same mailbox <mbId>, they are combined to create a "done" paired 
@@ -202,7 +200,7 @@ AsyncSend(aId, mbId, data_addr, comm_addr) ==
     - comm_addr: the address in the receivers's Memory where to store the communication id *)
     
 AsyncReceive(aId, mbId, data_addr, comm_addr) == 
-  /\ aId \in ActorsIds
+  /\ aId \in ActorsIds 
   /\ mbId\in MailboxesIds
   /\ data_addr \in Addresses
   /\ comm_addr \in Addresses
@@ -213,7 +211,7 @@ AsyncReceive(aId, mbId, data_addr, comm_addr) ==
            \/ /\ Len(Mailboxes[mbId]) > 0 
               /\ Head(Mailboxes[mbId]).status = "receive"
         /\ LET comm ==  
-                 [id |-> commId,
+                 [id |-> commIds[aId],
                   status |-> "receive", 
                   src |-> NoActor,
                   dst |-> aId, 
@@ -223,7 +221,7 @@ AsyncReceive(aId, mbId, data_addr, comm_addr) ==
              /\ Mailboxes' = [Mailboxes EXCEPT ![mbId] = Append(Mailboxes[mbId], comm)]
              /\ Memory' = [Memory EXCEPT ![aId][comm_addr] = comm.id]
              /\ UNCHANGED <<Communications>>    
-             /\ commId' = commId+1
+             /\ commIds' = [commIds EXCEPT ![aId] = commIds[aId] +1 ]
             (*Else the mailbox is not empty *)
      \/ /\ Len(Mailboxes[mbId]) >  0
         /\ Head(Mailboxes[mbId]).status = "send"     
@@ -240,7 +238,7 @@ AsyncReceive(aId, mbId, data_addr, comm_addr) ==
                                                     Memory[comm.src][comm.data_src]]
                  /\ Mailboxes' = [Mailboxes EXCEPT ![mbId] = Tail(Mailboxes[mbId])]
                  /\ Memory' = [Memory EXCEPT ![aId][comm_addr] = comm.id]
-                 /\ UNCHANGED <<commId>>
+                 /\ UNCHANGED <<commIds>>
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
   /\ UNCHANGED <<Mutexes, MtRequests >> 
 
@@ -257,7 +255,7 @@ WaitAny(aId, comm_addrs) ==
   /\ pc[aId] \in WaitIns
   /\ \E comm_addr \in comm_addrs, c \in Communications: c.id = Memory[aId][comm_addr]
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
-  /\ UNCHANGED <<Mutexes, MtRequests, Mailboxes, commId, Memory, Communications >>
+  /\ UNCHANGED <<Mutexes, MtRequests, Mailboxes, commIds, Memory, Communications >>
  (* otherwise i.e. no communication in <comm_addrs> is  "done", WaitAny is blocking *)
 
 
@@ -284,7 +282,7 @@ TestAny(aId, comm_addrs, testResult_Addr) ==
         /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = ValFalse]
   (* Test is non-blocking since in all cases pc[aId] is incremented *)
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
-  /\ UNCHANGED <<Mutexes, MtRequests, Mailboxes,Communications, commId>>
+  /\ UNCHANGED <<Mutexes, MtRequests, Mailboxes,Communications, commIds>>
   
 
 (* -------------------------------- SYNCHRONIZATION SUBSYSTEM ----------------------------------------------------*)
@@ -313,7 +311,7 @@ TestAny(aId, comm_addrs, testResult_Addr) ==
          /\ UNCHANGED <<Mutexes,  Memory, MtRequests>>  
    (* MutexAsyncLock is never blocking, in any case, pc[aId] is incremented *) 
    /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
-   /\ UNCHANGED <<Communications, Mailboxes, commId>>
+   /\ UNCHANGED <<Communications, Mailboxes, commIds>>
        
   
   
@@ -330,12 +328,11 @@ MutexUnlock(aId, req_addr) ==
    /\ Mutexes' = [Mutexes EXCEPT ![Memory[aId][req_addr]] = remove(aId,Mutexes[Memory[aId][req_addr]])]
    /\ MtRequests' = [MtRequests EXCEPT ![aId] = MtRequests[aId] \ {Memory[aId][req_addr] }]
    /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
-   /\ UNCHANGED <<Memory, Communications, Mailboxes, commId>>
-   
+   /\ UNCHANGED <<Memory, Communications, Mailboxes, commIds>>
    (* Otherwise, the transition is not enabled and Actor <aId> is blocked *)
    
    
-(* MutexWait(aId, req_addr): Actor <aId> waits for a lock request whose id is store in <req_addr>, 
+(* MutexWait(aId, req_addr): Actor <aId> waits for some locks request whose id is store in <req_addr>, 
   - if there is a req in MtRequests[aId] whose mid is store in  <req_addr>, and <aId> is the owner of this mutex mid (head of Mutexes[req.id]), 
     then MutexWait is enabled
   - otherwise the transition is not enabled.
@@ -343,24 +340,13 @@ MutexUnlock(aId, req_addr) ==
  *)
 
 
-(*
-MutexWait(aId, req_addr) == 
-/\ aId \in ActorsIds
-/\ req_addr \in Addresses
-/\ pc[aId] \in MwaitIns
-    (* If req_a is the id of a Request of Actor <aId>, and <aId> is the owner of this mutex, <aId> proceeds and increment its pc *) 
-/\ \E req \in MtRequests[aId]: req = Memory[aId][req_addr] /\ isHead(aId, Mutexes[req])
-/\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
-/\ UNCHANGED << Memory, Mutexes, MtRequests, Communications, Mailboxes, commId>>
-*)
-
 
 MutexWait(aId, req_addrs) ==
   /\ aId \in ActorsIds
   /\ pc[aId] \in MwaitIns
   /\ \E req_add \in req_addrs, req \in MtRequests[aId]: req = Memory[aId][req_add] /\ isHead(aId, Mutexes[req])
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
-  /\ UNCHANGED << Memory, Mutexes, MtRequests, Communications, Mailboxes, commId>>
+  /\ UNCHANGED << Memory, Mutexes, MtRequests, Communications, Mailboxes, commIds>>
 
 (* otherwise <aId> is blocked, pc[aId] is unmodified *)  
 
@@ -385,7 +371,7 @@ MutexTest(aId, req_addrs, testResult_Addr) ==
            /\ isHead(aId, Mutexes[req])
         /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = ValFalse]
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
-  /\ UNCHANGED <<Mutexes, MtRequests, Communications,  Mailboxes, commId>>
+  /\ UNCHANGED <<Mutexes, MtRequests, Communications,  Mailboxes, commIds>>
 
 
 --------------------------------------------------------------------------------------------------------------------------------
@@ -406,7 +392,7 @@ Next == \exists actor \in ActorsIds, mbId\in MailboxesIds, mutex \in MutexesIds,
           \/ MutexUnlock(actor, req_addr)
           
 
-Spec == Init /\ [][Next]_<< pc, Communications, Memory, Mutexes, MtRequests, Mailboxes, commId >>
+Spec == Init /\ [][Next]_<< pc, Communications, Memory, Mutexes, MtRequests, Mailboxes, commIds >>
 -----------------------------------------------------------------------------------------------------------------
 
 (* Definition of the Independence relation *)
@@ -562,5 +548,6 @@ except if they concern the same mutex and one of the actors owns the mutex  ??? 
  
 =============================================================================
 \* Modification History
-\* Last modified Mon Feb 11 14:23:19 CET 2019 by diep-chi
+\* Last modified Tue Feb 12 15:31:01 CET 2019 by diep-chi
 \* Created Fri Jan 12 18:32:38 CET 2018 by diep-chi
+
