@@ -1,4 +1,5 @@
----------------------------- MODULE AbtractModel ----------------------------
+--------------------------- MODULE abstractModel2 ---------------------------
+(*THERE ARE COMMUNICATION IDS IN THIS VERSION FOR EXPRESSING INDEPENDENE THEOREMS*)
 
 
 (*This specification formally describes (builds the formal model of) programs/distributed systems that are simulated in SimGrid. 
@@ -12,18 +13,18 @@
                         v
                    next state 
                    
-  - The state of the system is represented by 7 variables: Communications, Mailboxes, Memory, pc, Mutexes, commId and MtRequests
+  - The state of the system is represented by 7 variables: Communications, Mailboxes, Memory, pc, Mutex, commId and Locks
     + Communications is the set of all paired communications in the system (i.e. when a pair of send and receive requests have been matched) 
     + Mailboxes is an array indexed by MailboxesIds ; Mailboxes[mId] is a FIFO queue which stores send or receive requests (unpaired communications),
-    + Memory is an array indexed by ActorsIds, Memory[aId] is a memory local to the actor aId used to store ids of communications, ids of MtRequests and values of local variables 
-    + pc is an array indexed by ActorsIds; pc[aId] represents the program counter of the actor aId, changed  after firing each action 
-    + Mutexes is an array indexed by MutexesIds; Mutexes[mId] is a FIFO queue that remembers which actors have required the mutex 
-    + MtRequests is an array indexed by ActorsIds; MtRequests[aId] is the set of all the MutexesIds requested by the actor aId   
+    + Memory is an array indexed by Actors, Memory[aId] is a memory local to the actor aId used to store ids of communications, ids of Locks and values of local variables 
+    + pc is an array indexed by Actors; pc[aId] represents the program counter of the actor aId, changed  after firing each action 
+    + Mutex is an array indexed by MutexIds; Mutex[mId] is a FIFO queue that remembers which actors have required the mutex 
+    + Locks is an array indexed by Actors; Locks[aId] is the set of all the MutexIds requested by the actor aId   
     + commId is used to set id for communications
   - Actions are structured in 3 subsystems:
     - the Local actions :  Local, 
     - the Communication actions: AsyncSend, AsyncReceive, Wait, Test,
-    - the Synchronization actions: MutexAsyncLock, MutexUnLock, MutexTest and MutexWait.
+    - the Synchronization actions: MutexAsyncLock, MutexUnLock, MutexTestAny and MutexWaitAny.
    *)
    
 (*---------------------------- GENERAL CONSTANTS, VARIABLES, FUNCTIONS  --------------------------------------------*)
@@ -32,23 +33,19 @@
 EXTENDS Integers , Naturals, Sequences, FiniteSets, TLC   
 
 
-CONSTANTS (*Sets containing the names of all the actors, mailboxes and mutexes *)
-          ActorsIds, MailboxesIds, MutexesIds,
+CONSTANTS (*Sets containing the names of all the actors, mailboxes and Mutex *)
+          Actors, MailboxesIds, MutexIds,
           (*Set of all existing Memory addresses. Each actor has its own private Memory, indexed by these addresses *)
           Addresses,
-          (*The test action writes a boolean in Memory *)
-          ValTrue, ValFalse,
           (*Existing Actions Types *)
           SendIns, ReceiveIns, WaitIns, TestIns, LocalIns,
           LockIns, UnlockIns,  MwaitIns, MtestIns
           
-VARIABLES Communications, Memory, pc,  Mutexes, MtRequests, Mailboxes,  commIds 
+VARIABLES Communications, Memory, pc,  Mutex, Locks, Mailboxes,  nbComMbs, nbtest
 
-NoActor == CHOOSE a : a \notin ActorsIds
+NoActor == CHOOSE a : a \notin Actors
 NoAddr == CHOOSE addr : addr \notin Addresses
 
-ASSUME ValTrue \in Nat
-ASSUME ValFalse \in Nat
 
 Partition(S) == \forall x,y \in S : x \cap y /= {} => x = y
 ASSUME Partition({SendIns, ReceiveIns, WaitIns, TestIns
@@ -58,23 +55,26 @@ Instr ==UNION {SendIns, ReceiveIns, WaitIns, TestIns
               , LocalIns , LockIns, UnlockIns, MwaitIns, MtestIns}
 
 
-(* Initially there are no Communications, no MtRequests on the mutexes, Memory has random values *)
+(* Initially there are no Communications, no Locks on the Mutex, Memory has random values *)
 
 Init == /\ Communications = { }
-        (*/\ Memory \in [ActorsIds -> [Addresses -> Nat]*)
+        (*/\ Memory \in [Actors -> [Addresses -> Nat]*)
         (*Set Memory for running model*)
-        /\ Memory \in [ActorsIds -> [Addresses -> {0}]]
-        /\ Mutexes = [i \in MutexesIds |-> <<>>] 
+         \*/\ Memory = [ i \in Actors, j \in Addresses |-> << >>]
+        
+        /\ Memory \in [Actors -> [Addresses -> { << >> }  ] ]
+        /\ Mutex = [i \in MutexIds |-> <<>>] 
         /\ Mailboxes = [i \in MailboxesIds |-> <<>>] 
-        /\ MtRequests = [i \in ActorsIds |-> {}]
-        (*/\ pc = CHOOSE f \in [ActorsIds -> Instr] : TRUE*)
-        /\ pc = [a \in ActorsIds |-> "send"] 
-        /\ commIds =  [i \in ActorsIds |-> i*10000]
+        /\ Locks = [i \in Actors |-> {}]
+        (*/\ pc = CHOOSE f \in [Actors -> Instr] : TRUE*)
+        /\ pc = [a \in Actors |-> "send"] 
+        /\ nbComMbs =  [i \in MailboxesIds |-> 0]        
+        /\ nbtest = 0
 (* Comm type is declared as a structure *)  
-Comm == [id:Nat,
+Comm == [id: <<Nat, Nat >> ,
          status:{"send", "receive", "done"},
-         src:  ActorsIds \cup { NoActor },
-         dst:  ActorsIds  \cup { NoActor },
+         src:  Actors \cup { NoActor },
+         dst:  Actors  \cup { NoActor },
          data_src:   Addresses \cup { NoAddr },
          data_dst:  Addresses \cup { NoAddr }]
 
@@ -86,7 +86,7 @@ TypeInv == /\ \forall c \in Communications : c \in Comm /\ c.status = "done"
                          \/ Mailboxes[mbId][c].status \notin {"send", "receive"}  
                          \/ \exists c1 \in DOMAIN Mailboxes[mbId] : Mailboxes[mbId][c].status /= Mailboxes[mbId][c1].status
                                                      
-           /\ \forall mId \in MutexesIds: \forall id \in  DOMAIN Mutexes[mId]: Mutexes[mId][id] \in ActorsIds
+           /\ \forall mId \in MutexIds: \forall id \in  DOMAIN Mutex[mId]: Mutex[mId][id] \in Actors
 
 
                            (*-------------------- FUNCTIONS -------------------*)
@@ -110,7 +110,7 @@ remove(e,q) == SubSeq(q, 1, getIndex(e,q)-1) \circ SubSeq(q, getIndex(e,q)+1, Le
 isMember(m, q) == IF \E i \in (1..Len(q)): m = q[i] THEN TRUE
                   ELSE FALSE
 
-
+abval =={ << >> }
    
 (* ---------------------------------------------------- LOCAL SUBSYSTEM ---------------------------------------------*)
 
@@ -118,12 +118,13 @@ isMember(m, q) == IF \E i \in (1..Len(q)): m = q[i] THEN TRUE
 (* A local computaion of Actor <aId> can change the value of this Actor's Memory at any address *)
 
 Local(aId) ==
-    /\ aId \in ActorsIds
+    /\ aId \in Actors
     /\ pc[aId] \in LocalIns
     \*change value of Memory[aId][a], set {0,1,2,3,4,5} just for running model
-    /\ Memory' \in [ActorsIds -> [Addresses -> {0,1,2,3,4,5}]]
+  
+    /\ Memory' \in [Actors -> [Addresses -> { << >> }  ] ]
     /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
-    /\ UNCHANGED <<Communications, Mutexes, MtRequests, Mailboxes, commIds >>
+    /\ UNCHANGED <<Communications, Mutex, Locks, Mailboxes, nbComMbs, nbtest >>
 
 
 (* ---------------------------------------------COMMUNICATION SUBSYSTEM -----------------------------------*)
@@ -137,13 +138,13 @@ Local(aId) ==
     and Memory address <comm_addr> of Actor <aId> is assigned the id of the communication 
 
   Parameters:
-    - aId: the ActorsIds of the sender 
+    - aId: the Actors of the sender 
     - mbId: the MailboxesIds where the "send" communication request is pushed 
     - data_addr: the address in the AsyncSender's Memory where the data to transmit is stored 
     - comm_addr: the address in the AsyncSender's Memory where to store the communication id *)
  
 AsyncSend(aId, mbId, data_addr, comm_addr) == 
-  /\ aId \in ActorsIds 
+  /\ aId \in Actors 
   /\ mbId\in MailboxesIds
   /\ data_addr \in Addresses
   /\ comm_addr \in Addresses
@@ -154,7 +155,7 @@ AsyncSend(aId, mbId, data_addr, comm_addr) ==
            \/ /\ Len(Mailboxes[mbId]) > 0 
               /\ Head(Mailboxes[mbId]).status = "send" 
         /\ LET comm ==  
-                 [id |-> commIds[aId], 
+                 [id |-> <<mbId, nbComMbs[mbId] >>,
                   status |-> "send", 
                   src |-> aId,
                   dst |-> NoActor, 
@@ -164,8 +165,7 @@ AsyncSend(aId, mbId, data_addr, comm_addr) ==
                 /\ Mailboxes' = [Mailboxes EXCEPT ![mbId] = Append(Mailboxes[mbId],comm)]
                 /\ Memory' = [Memory EXCEPT ![aId][comm_addr] = comm.id] 
                 /\ UNCHANGED <<Communications>>    
-                /\ commIds' = [commIds EXCEPT ![aId] = commIds[aId] +1 ]
-                
+                /\ nbComMbs' = [nbComMbs EXCEPT ![mbId] = nbComMbs[mbId]+1]                
         (*Else the mailbox is not empty *)
      \/ /\ Len(Mailboxes[mbId]) >  0
         /\ Head(Mailboxes[mbId]).status = "receive"    
@@ -181,9 +181,9 @@ AsyncSend(aId, mbId, data_addr, comm_addr) ==
                  /\ Memory' = [Memory EXCEPT ![comm.dst][comm.data_dst] = 
                                                     Memory[aId][data_addr]]
                  /\ Memory' = [Memory EXCEPT ![aId][comm_addr] = comm.id] 
-                 /\ UNCHANGED <<commIds>>
+                 /\ UNCHANGED <<nbComMbs, nbtest>>
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
-  /\ UNCHANGED << Mutexes, MtRequests>> 
+  /\ UNCHANGED << Mutex, Locks , nbtest>> 
 
 
 (* AsyncReceive(aId,mbId,data_addr,comm_addr): the actor <aId> sends a "receive" request to the mailbox <mbId>.
@@ -200,7 +200,7 @@ AsyncSend(aId, mbId, data_addr, comm_addr) ==
     - comm_addr: the address in the receivers's Memory where to store the communication id *)
     
 AsyncReceive(aId, mbId, data_addr, comm_addr) == 
-  /\ aId \in ActorsIds 
+  /\ aId \in Actors 
   /\ mbId\in MailboxesIds
   /\ data_addr \in Addresses
   /\ comm_addr \in Addresses
@@ -211,7 +211,7 @@ AsyncReceive(aId, mbId, data_addr, comm_addr) ==
            \/ /\ Len(Mailboxes[mbId]) > 0 
               /\ Head(Mailboxes[mbId]).status = "receive"
         /\ LET comm ==  
-                 [id |-> commIds[aId],
+                 [id |-> <<mbId, nbComMbs[mbId] >>,
                   status |-> "receive", 
                   src |-> NoActor,
                   dst |-> aId, 
@@ -221,7 +221,7 @@ AsyncReceive(aId, mbId, data_addr, comm_addr) ==
              /\ Mailboxes' = [Mailboxes EXCEPT ![mbId] = Append(Mailboxes[mbId], comm)]
              /\ Memory' = [Memory EXCEPT ![aId][comm_addr] = comm.id]
              /\ UNCHANGED <<Communications>>    
-             /\ commIds' = [commIds EXCEPT ![aId] = commIds[aId] +1 ]
+             /\ nbComMbs' = [nbComMbs EXCEPT ![aId] = nbComMbs[aId] +1 ]
             (*Else the mailbox is not empty *)
      \/ /\ Len(Mailboxes[mbId]) >  0
         /\ Head(Mailboxes[mbId]).status = "send"     
@@ -238,9 +238,9 @@ AsyncReceive(aId, mbId, data_addr, comm_addr) ==
                                                     Memory[comm.src][comm.data_src]]
                  /\ Mailboxes' = [Mailboxes EXCEPT ![mbId] = Tail(Mailboxes[mbId])]
                  /\ Memory' = [Memory EXCEPT ![aId][comm_addr] = comm.id]
-                 /\ UNCHANGED <<commIds>>
+                 /\ UNCHANGED <<nbComMbs>>
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
-  /\ UNCHANGED <<Mutexes, MtRequests >> 
+  /\ UNCHANGED <<Mutex, Locks , nbtest>> 
 
 (* Wait(aId,comm_addrs):  Actor <aId> waits for at least one communication from a given set <comm_addrs> to complete 
     If it is already "done", there is nothing to do.
@@ -251,11 +251,11 @@ AsyncReceive(aId, mbId, data_addr, comm_addr) ==
 *)
 
 WaitAny(aId, comm_addrs) ==
-  /\ aId \in ActorsIds
+  /\ aId \in Actors
   /\ pc[aId] \in WaitIns
-  /\ \E comm_addr \in comm_addrs, c \in Communications: c.id = Memory[aId][comm_addr]
+  /\ \E comm_addr \in comm_addrs, comm \in Communications: comm.id = Memory[aId][comm_addr]
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
-  /\ UNCHANGED <<Mutexes, MtRequests, Mailboxes, commIds, Memory, Communications >>
+  /\ UNCHANGED <<Mutex, Locks, Mailboxes, nbComMbs, Memory, Communications, nbtest >>
  (* otherwise i.e. no communication in <comm_addrs> is  "done", WaitAny is blocking *)
 
 
@@ -269,130 +269,121 @@ WaitAny(aId, comm_addrs) ==
     
 
 TestAny(aId, comm_addrs, testResult_Addr) ==
-  /\ aId \in ActorsIds
+  /\ aId \in Actors
   /\ testResult_Addr \in Addresses
-  /\ pc[aId] \in TestIns
-  /\ \/ \E comm_addr \in comm_addrs, comm \in Communications: comm.id = Memory[aId][comm_addr] /\
+  /\ \/ \E comm_addr \in comm_addrs, comm \in Communications: comm.id = Memory[aId][comm_addr]
         (* If the communication is "done" return ValTrue *)
-           /\ comm.status = "done"
-           /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = ValTrue]
+           /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = <<1>>]
+          \* /\ nbtest' =  nbtest +1
         (* if no communication is "done", return ValFalse *)   
      \/ /\ ~ \exists comm_addr \in comm_addrs, comm \in Communications: comm.id = Memory[aId][comm_addr]
-                /\ comm.status = "done"
-        /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = ValFalse]
+        /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = <<0>>]
+        /\ UNCHANGED  nbtest
   (* Test is non-blocking since in all cases pc[aId] is incremented *)
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
-  /\ UNCHANGED <<Mutexes, MtRequests, Mailboxes,Communications, commIds>>
+  /\ UNCHANGED <<Mutex, Locks, Mailboxes,Communications, nbComMbs, nbtest>>
   
-
 (* -------------------------------- SYNCHRONIZATION SUBSYSTEM ----------------------------------------------------*)
                                 
 (* MutexAsyncLock(aId, mid, req_a) : Actor <aId> is requesting a lock on mutex <mid>. If allowed, address <req_a> stores the mutex id <mid>.    
 - If the actor <aId> has no pending request on mutex <mid>, a new one is created 
         - add pair [mid,req_a] in Request[aId]
         - store <mid> in Memory[aId][req_a], i.e. local address <req_a> is assigned value <mid>
-        - enqueue <aId> in Mutexes[mid]
- The operation is non-blocking (pc[aId] is modified in any case)       
+        - enqueue <aId> in Mutex[mid]
+ The operation is non-blocking
 *) 
  
  
  MutexAsyncLock(aId, mId, req_addr) ==
-   /\ aId \in ActorsIds
-   /\ pc[aId] \in LockIns
-   /\ mId \in MutexesIds
+   /\ aId \in Actors
+   /\ mId \in MutexIds
    /\ req_addr \in Addresses
          (* if Actor <aId> has no pending request on mutex <mid>, create a new one *)      
-   /\ \/ /\ ~isMember(aId, Mutexes[mId])
-         /\  MtRequests'  = [MtRequests EXCEPT ![aId]= MtRequests[aId] \cup {mId}]
-         /\  Memory' = [Memory EXCEPT ![aId][req_addr] = mId]  
-         /\  Mutexes' = [Mutexes EXCEPT ![mId] = Append(Mutexes[mId], aId)]
+   /\ \/ /\ ~isMember(aId, Mutex[mId])
+         /\  Locks'  = [Locks EXCEPT ![aId]= Locks[aId] \cup {mId}]
+         /\  Mutex' = [Mutex EXCEPT ![mId] = Append(Mutex[mId], aId)]
          (* otherwise i.e. actor <aId> alreadly has a pending request on mutex <mid>, keep the variables unchanged *)          
-      \/ /\ isMember(aId, Mutexes[mId]) 
-         /\ UNCHANGED <<Mutexes,  Memory, MtRequests>>  
-   (* MutexAsyncLock is never blocking, in any case, pc[aId] is incremented *) 
-   /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
-   /\ UNCHANGED <<Communications, Mailboxes, commIds>>
-       
-  
+      \/ /\ isMember(aId, Mutex[mId]) 
+         /\ UNCHANGED <<Mutex,  Locks>>
+   /\ UNCHANGED <<Communications, Mailboxes, nbtest, nbComMbs ,  Memory, pc>>
   
 (* MutexUnlock(aId, mId): the Actor <aId> wants to release the mutex <mid>
-    - it is either a normal unlock when <aId> owns <mid> (it is head of Mutexes[mid]) 
+    - it is either a normal unlock when <aId> owns <mid> (it is head of Mutex[mid]) 
     - or a cancel otherwise. 
-    In both cases all links between <mid> and <aId> are removed in Mutexes[mid] and MtRequests[aId] 
+    In both cases all links between <mid> and <aId> are removed in Mutex[mid] and Locks[aId] 
  *)
  
-MutexUnlock(aId, req_addr) ==
-   /\ aId \in ActorsIds
-   /\ req_addr \in Addresses
-   /\ pc[aId] \in UnlockIns
-   /\ Mutexes' = [Mutexes EXCEPT ![Memory[aId][req_addr]] = remove(aId,Mutexes[Memory[aId][req_addr]])]
-   /\ MtRequests' = [MtRequests EXCEPT ![aId] = MtRequests[aId] \ {Memory[aId][req_addr] }]
-   /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
-   /\ UNCHANGED <<Memory, Communications, Mailboxes, commIds>>
+MutexUnlock(aId, mId) ==
+   /\ aId \in Actors
+   /\ isHead(aId, Mutex[mId])
+   /\ Mutex' = [Mutex EXCEPT ![mId] = remove(aId,Mutex[mId])]
+   /\ Locks' = [Locks EXCEPT ![aId] = Locks[aId] \ {mId} ]
+   /\ UNCHANGED <<Memory, Communications, Mailboxes, nbtest, nbComMbs , pc>>
+   
    (* Otherwise, the transition is not enabled and Actor <aId> is blocked *)
    
    
-(* MutexWait(aId, req_addr): Actor <aId> waits for some locks request whose id is store in <req_addr>, 
-  - if there is a req in MtRequests[aId] whose mid is store in  <req_addr>, and <aId> is the owner of this mutex mid (head of Mutexes[req.id]), 
-    then MutexWait is enabled
+(* MutexWaitAnyAny(aId, req_addr): Actor <aId> waits for a lock request whose id is store in <req_addr>, 
+  - if there is a req in Locks[aId] whose mid is store in  <req_addr>, and <aId> is the owner of this mutex mid (head of Mutex[req.id]), 
+    then MutexWaitAnyAny is enabled
   - otherwise the transition is not enabled.
-  MutexWait is thus blocking until <aId> owns the mutex 
+  MutexWaitAnyAny is thus blocking until <aId> owns the mutex 
  *)
 
+MutexWaitAny(aId, locks) == 
+/\ aId \in Actors
+(* If req_a is the id of a Request of Actor <aId>, and <aId> is the owner of this mutex, <aId> proceeds*) 
+/\ \E req \in  locks : isHead(aId, Mutex[req])
+/\ UNCHANGED << Memory, Mutex, Locks, Communications, Mailboxes, nbtest, nbComMbs , pc>>
+
+(* otherwise <aId> is blocked *)  
 
 
-MutexWait(aId, req_addrs) ==
-  /\ aId \in ActorsIds
-  /\ pc[aId] \in MwaitIns
-  /\ \E req_add \in req_addrs, req \in MtRequests[aId]: req = Memory[aId][req_add] /\ isHead(aId, Mutexes[req])
-  /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
-  /\ UNCHANGED << Memory, Mutexes, MtRequests, Communications, Mailboxes, commIds>>
-
-(* otherwise <aId> is blocked, pc[aId] is unmodified *)  
-
-
-(* MutexTest(aId, req_addrs, testResult_Addr): actor <aId> tests if he is the owner of some mutex whose id is store in <req_addr>
-            (i.e. he is the head of the mutex Mutexes)
+(* MutexTestAnyAny(aId,req_addr, result_addr): actor <aId> tests if he is the owner of the mutex whose id is store in <req_addr>
+            (i.e. he is the head of the mutex Mutex)
             and stores the boolean result at address <testResult_Addr> 
-            MutexTest is non-blocking (in any case pc[aId] is modified).
+            MutexTestAnyAny is non-blocking
             *)
-
-MutexTest(aId, req_addrs, testResult_Addr) ==
-  /\ aId \in ActorsIds
-  /\ pc[aId] \in MtestIns
+            
+            
+            
+MutexTestAny(aId, locks, testResult_Addr) ==
+  /\ aId \in Actors
   /\ testResult_Addr \in Addresses
-  /\ \/ \E req_add \in req_addrs, req \in  MtRequests[aId]: req = Memory[aId][req_add]/\ 
-     (* If the actor is the owner of some mutex then return true *)
-        \/ /\ isHead(aId, Mutexes[req])
-           /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = ValTrue]
-     
-     (*Else it is not the owner of any mutex then return false *)
-     \/ /\~\E req_add \in req_addrs, req \in  MtRequests[aId]: req = Memory[aId][req_add]/\    
-           /\ isHead(aId, Mutexes[req])
-        /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = ValFalse]
-  /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
-  /\ UNCHANGED <<Mutexes, MtRequests, Communications,  Mailboxes, commIds>>
-
+  /\  \/ /\ \E req \in  locks: isHead(aId, Mutex[req]) 
+         /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = <<1>> (*TRUE*)]
+         /\ nbtest' = nbtest +1
+      \/ /\ ~\E req \in  locks: isHead(aId, Mutex[req]) 
+         /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = <<0>> (*FALSE*)] 
+         /\ UNCHANGED nbtest 
+  /\ UNCHANGED <<Mutex, Locks, Communications, Mailboxes, nbComMbs , pc>>
 
 --------------------------------------------------------------------------------------------------------------------------------
                                     (*INDICATE NEXT ACTIONS *)
                                     
 (* Next indicates the possible actions that could be fired at a state  *)
-Next == \exists actor \in ActorsIds, mbId\in MailboxesIds, mutex \in MutexesIds, data_addr,
-        comm_addr, req_addr, result_addr \in Addresses, req_addrs, comm_addrs \in SUBSET Addresses:
-                
-          \/ AsyncSend(actor, mbId, data_addr, comm_addr)
-          \/ AsyncReceive(actor, mbId, data_addr, comm_addr)
-          \/ WaitAny(actor, comm_addrs)
-          \/ TestAny(actor, comm_addrs, result_addr)
-          \/ Local(actor) 
-          \/ MutexAsyncLock(actor, mutex, req_addr)
-          \/ MutexWait(actor, req_addrs)
-          \/ MutexTest(actor,req_addrs, result_addr) 
-          \/ MutexUnlock(actor, req_addr)
-          
+Next == (*\E actor \in Actors, mbId\in MailboxesIds, mutex \in MutexIds, data_addr,
+        comm_addr, req_addr, result_addr \in Addresses, req_addrs, comm_addrs \in SUBSET Addresses:*)
+          \/  \E actor \in Actors, mbId\in MailboxesIds, mutex \in MutexIds, data_addr, comm_addr \in  Addresses:      
+               AsyncSend(actor, mbId, data_addr, comm_addr)
+          \/  \E actor \in Actors, mbId\in MailboxesIds, mutex \in MutexIds, data_addr, comm_addr \in  Addresses:      
+               AsyncReceive(actor, mbId, data_addr, comm_addr)
+          \/  \E actor \in Actors, comm_addrs \in SUBSET Addresses:      
+               WaitAny(actor, comm_addrs)
+          \/  \E actor \in Actors,  result_addr \in  Addresses, comm_addrs  \in SUBSET Addresses :      
+               TestAny(actor, comm_addrs, result_addr)
+          \/  \E actor \in Actors:
+               Local(actor)
+          \/ \E actor \in Actors, mt \in MutexIds, addr \in Addresses:
+              MutexAsyncLock(actor, mt, addr)
+          \/ \E actor \in Actors: \E   locks \in SUBSET Locks[actor]:
+              MutexWaitAny(actor, locks)
+          \/ \E actor \in Actors: \E  locks \in SUBSET Locks[actor], addr \in Addresses:
+              MutexTestAny(actor, locks , addr) 
+          \/ \E actor \in Actors, mt \in MutexIds:
+             MutexUnlock(actor, mt)  
 
-Spec == Init /\ [][Next]_<< pc, Communications, Memory, Mutexes, MtRequests, Mailboxes, commIds >>
+Spec == Init /\ [][Next]_<< pc, Communications, Memory, Mutex, Locks, Mailboxes, nbComMbs, nbtest >>
 -----------------------------------------------------------------------------------------------------------------
 
 (* Definition of the Independence relation *)
@@ -411,22 +402,22 @@ I(A,B) == /\ ENABLED A =>   /\ ENABLED B => (A => (ENABLED B)')
 (* Independence theorems for Communications *)
 
  (*A LocalComputation action is independent with all other actions*)
- THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, req,  data, comm, test_r \in Addresses,
+ THEOREM \forall a1, a2 \in Actors, mt \in MutexIds, req,  data, comm, test_r \in Addresses,
          mbId\in MailboxesIds, comm_addrs \in SUBSET Addresses:
            a1 /= a2 =>
            /\ I(Local(a1), AsyncSend(a2, mbId, data, comm))
            /\ I(Local(a1), AsyncReceive(a2, mbId, data, comm))  
            /\ I(Local(a1), WaitAny(a2, comm_addrs))   
            /\ I(Local(a1), TestAny(a2, comm_addrs, test_r))   
-           /\ I(Local(a1), MutexWait(a2, req))
-           /\ I(Local(a1), MutexTest(a2, req, test_r))
+           /\ I(Local(a1), MutexWaitAny(a2, req))
+           /\ I(Local(a1), MutexTestAny(a2, req, test_r))
            /\ I(Local(a1), MutexUnlock(a2, mt))
            /\ I(Local(a1), MutexUnlock(a2, mt))
  
- (*A synchoronization action (MutexAsyncLock, MutexUnlock, MutexWait, MutexTest) is independent with 
+ (*A synchoronization action (MutexAsyncLock, MutexUnlock, MutexWaitAny, MutexTestAny) is independent with 
  a communication action (AsyncSend, AsyncReceive, TestAny, WaitAny) if they are performed by different actors*)
  
-THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, req,  data, comm, test_r1,  test_r2 \in Addresses,
+THEOREM \forall a1, a2 \in Actors, mt \in MutexIds, req,  data, comm, test_r1,  test_r2 \in Addresses,
          mbId\in MailboxesIds, comm_addrs \in SUBSET Addresses:
            a1 /= a2 =>
            /\ I(MutexAsyncLock(a1, mt, req), AsyncSend(a2, mbId, data, comm))
@@ -439,20 +430,20 @@ THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, req,  data, comm, test_
            /\ I(MutexUnlock(a1, mt), WaitAny(a2, comm_addrs))   
            /\ I(MutexUnlock(a1, mt), TestAny(a2, comm_addrs, test_r1))
               
-           /\ I(MutexWait(a1, req), AsyncSend(a2, mbId, data, comm))
-           /\ I(MutexWait(a1, req), AsyncReceive(a2, mbId, data, comm))
-           /\ I(MutexWait(a1, req), WaitAny(a2, comm_addrs))
-           /\ I(MutexWait(a1, req), TestAny(a2, comm_addrs, test_r1))
+           /\ I(MutexWaitAny(a1, req), AsyncSend(a2, mbId, data, comm))
+           /\ I(MutexWaitAny(a1, req), AsyncReceive(a2, mbId, data, comm))
+           /\ I(MutexWaitAny(a1, req), WaitAny(a2, comm_addrs))
+           /\ I(MutexWaitAny(a1, req), TestAny(a2, comm_addrs, test_r1))
           
-           /\ I(MutexTest(a1, req, test_r1), AsyncSend(a2, mbId, data, comm))
-           /\ I(MutexTest(a1, req, test_r1), AsyncReceive(a2, mbId, data, comm))
-           /\ I(MutexTest(a1, req, test_r1), WaitAny(a2, comm_addrs))   
-           /\ I(MutexTest(a1, req, test_r1), TestAny(a2, comm_addrs, test_r2))   
+           /\ I(MutexTestAny(a1, req, test_r1), AsyncSend(a2, mbId, data, comm))
+           /\ I(MutexTestAny(a1, req, test_r1), AsyncReceive(a2, mbId, data, comm))
+           /\ I(MutexTestAny(a1, req, test_r1), WaitAny(a2, comm_addrs))   
+           /\ I(MutexTestAny(a1, req, test_r1), TestAny(a2, comm_addrs, test_r2))   
            
 
 
 (* two AsyncSend  or two AsyncReceive are independent if they concern different mailboxes 
-THEOREM \forall a1, a2 \in ActorsIds, mbId1, mbId2 \in MailboxesIds, data1, data2, comm1, comm2 \in Addresses:
+THEOREM \forall a1, a2 \in Actors, mbId1, mbId2 \in MailboxesIds, data1, data2, comm1, comm2 \in Addresses:
         /\ a1 /= a2 
         /\ mbId1 /= mbId2
   
@@ -462,7 +453,7 @@ THEOREM \forall a1, a2 \in ActorsIds, mbId1, mbId2 \in MailboxesIds, data1, data
 
 (* two communication actions are independent if they concern different mailboxes
    *)
-THEOREM \forall a1, a2 \in ActorsIds, mbId1, mbId2 \in MailboxesIds, data1, data2, comm1, comm2 \in Addresses:
+THEOREM \forall a1, a2 \in Actors, mbId1, mbId2 \in MailboxesIds, data1, data2, comm1, comm2 \in Addresses:
         /\ a1 /= a2 
         /\ mbId1 /= mbId2
   
@@ -475,12 +466,12 @@ THEOREM \forall a1, a2 \in ActorsIds, mbId1, mbId2 \in MailboxesIds, data1, data
 
 (* AsyncSend and AsyncReceive are always independent *)
 
-THEOREM \forall a1, a2 \in ActorsIds, mbId1, mbId2 \in MailboxesIds, data1, data2, comm1, comm2 \in Addresses:
+THEOREM \forall a1, a2 \in Actors, mbId1, mbId2 \in MailboxesIds, data1, data2, comm1, comm2 \in Addresses:
            a1 /= a2 => 
            I(AsyncSend(a1, mbId1, data1, comm1), AsyncReceive(a2, mbId2, data2, comm2))
        
 (* two WaitAny actions, or two TestAny actions, or a WaitAny action and a TestAny are independent*)
-THEOREM \forall a1, a2 \in ActorsIds, comm_addrs1, comm_addrs2 \in SUBSET Addresses, test_r1, test_r2 \in Addresses:
+THEOREM \forall a1, a2 \in Actors, comm_addrs1, comm_addrs2 \in SUBSET Addresses, test_r1, test_r2 \in Addresses:
         a1 /= a2 => 
            /\ I(WaitAny(a1, comm_addrs1), WaitAny(a2, comm_addrs2))
            /\ I(TestAny(a1, comm_addrs1, test_r1), TestAny(a2, comm_addrs2, test_r2))   
@@ -491,7 +482,7 @@ THEOREM \forall a1, a2 \in ActorsIds, comm_addrs1, comm_addrs2 \in SUBSET Addres
 AsyncReceive action are independent if they concern different communication. *)
 (* !!! Unsure about conditions for independence *)
 
-THEOREM \forall a1, a2 \in ActorsIds, data, comm1, comm2, test_r \in Addresses, mbId\in MailboxesIds:
+THEOREM \forall a1, a2 \in Actors, data, comm1, comm2, test_r \in Addresses, mbId\in MailboxesIds:
               /\ a1 /= a2
               /\ Memory[a1][comm1] /=   Memory[a2][comm2]
                  =>  /\ I( WaitAny(a1, {comm1}), AsyncSend(a2, mbId, data, comm2)) 
@@ -500,54 +491,54 @@ THEOREM \forall a1, a2 \in ActorsIds, data, comm1, comm2, test_r \in Addresses, 
                      /\ I( TestAny(a1, {comm1}, test_r ), AsyncReceive(a2, mbId, data, comm2))  
 
 
-(*Two synchronization actions are independent if they concern different mutexes and performed by different actors.*)
-THEOREM \forall a1, a2 \in ActorsIds, mt1, mt2 \in MutexesIds, req1, req2, test_r \in Addresses:
+(*Two synchronization actions are independent if they concern different Mutex and performed by different actors.*)
+THEOREM \forall a1, a2 \in Actors, mt1, mt2 \in MutexIds, req1, req2, test_r \in Addresses:
         /\ a1 /= a2
         /\ mt1 /= mt2
         /\ Memory[a2][req1] /= mt1
         => /\ I(MutexAsyncLock(a1, mt1, req1), MutexAsyncLock(a2, mt2, req2))
            /\ I(MutexAsyncLock(a1, mt1, req1), MutexUnlock(a2, mt2))
            /\ I(MutexUnlock(a1, mt2), MutexUnlock(a2, mt2))
-           /\ I(MutexAsyncLock(a1, mt1, req1), MutexTest(a2, req2, test_r))      
-           /\ I(MutexAsyncLock(a1, mt1, req1), MutexWait(a2, req1))      
+           /\ I(MutexAsyncLock(a1, mt1, req1), MutexTestAny(a2, req2, test_r))      
+           /\ I(MutexAsyncLock(a1, mt1, req1), MutexWaitAny(a2, req1))      
            /\ I(MutexUnlock(a1, mt1), MutexUnlock(a2, mt2))
-           /\ I(MutexUnlock(a1, mt1), MutexWait(a2, req1))
-           /\ I(MutexUnlock(a1, mt1), MutexTest(a2, req1, test_r))
+           /\ I(MutexUnlock(a1, mt1), MutexWaitAny(a2, req1))
+           /\ I(MutexUnlock(a1, mt1), MutexTestAny(a2, req1, test_r))
 
 (* MutexAsyncLock actions and MutexUnlock action are independent*)
  
-THEOREM \forall a1, a2 \in ActorsIds, mt1, mt2 \in MutexesIds, req1, req2 \in Addresses:
+THEOREM \forall a1, a2 \in Actors, mt1, mt2 \in MutexIds, req1, req2 \in Addresses:
         /\ a1 /= a2 =>  I(MutexAsyncLock(a1, mt1, req1), MutexUnlock(a2, req2))
 
       
- (*Two MutexWait actions, two MutexTest actions, a MutexWait action and MutexTest action are independent*)             
-THEOREM \forall a1, a2 \in ActorsIds, mt1, mt2 \in MutexesIds, req1, req2, test_r1, test_r2 \in Addresses,  
+ (*Two MutexWaitAny actions, two MutexTestAny actions, a MutexWaitAny action and MutexTestAny action are independent*)             
+THEOREM \forall a1, a2 \in Actors, mt1, mt2 \in MutexIds, req1, req2, test_r1, test_r2 \in Addresses,  
            comm_addrs1 , comm_addrs2 \in SUBSET Addresses:
            a1 /= a2 => 
-           /\ I(MutexWait(a1, req1), MutexWait(a2, req2))
-           /\ I(MutexWait(a1, req1), MutexTest(a2, req1, test_r1))
-           /\ I(MutexTest(a1, req1, test_r1), MutexTest(a2, req2, test_r2))
+           /\ I(MutexWaitAny(a1, req1), MutexWaitAny(a2, req2))
+           /\ I(MutexWaitAny(a1, req1), MutexTestAny(a2, req1, test_r1))
+           /\ I(MutexTestAny(a1, req1, test_r1), MutexTestAny(a2, req2, test_r2))
            
- (* A MutexAsyncLock action and a MutexWait action or MutexTest action are independent*)
- THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, req1, req2, test_r \in Addresses:
+ (* A MutexAsyncLock action and a MutexWaitAny action or MutexTestAny action are independent*)
+ THEOREM \forall a1, a2 \in Actors, mt \in MutexIds, req1, req2, test_r \in Addresses:
          a1 /= a2 =>
-         /\ I(MutexAsyncLock(a1, mt, req1), MutexWait(a2, req2))
-         /\ I(MutexAsyncLock(a1, mt, req1), MutexTest(a1, req2, test_r))
+         /\ I(MutexAsyncLock(a1, mt, req1), MutexWaitAny(a2, req2))
+         /\ I(MutexAsyncLock(a1, mt, req1), MutexTestAny(a1, req2, test_r))
 
- (* A MutexUnlock action and a MutexWait action or MutexTest action are independent if concern different mutexes*)
-THEOREM \forall a1, a2 \in ActorsIds, mt \in MutexesIds, test_r, req, req1 \in Addresses:
+ (* A MutexUnlock action and a MutexWaitAny action or MutexTestAny action are independent if concern different Mutex*)
+THEOREM \forall a1, a2 \in Actors, mt \in MutexIds, test_r, req, req1 \in Addresses:
             /\ a1 /= a2 
-            /\ Memory[a1][req] /= mt => /\ I(MutexUnlock(a1, req1), MutexWait(a2, req))
-                                        /\ I(MutexUnlock(a1, req1), MutexTest(a2, req, test_r))
+            /\ Memory[a1][req] /= mt => /\ I(MutexUnlock(a1, req1), MutexWaitAny(a2, req))
+                                        /\ I(MutexUnlock(a1, req1), MutexTestAny(a2, req, test_r))
 
 
-(*A \mutexunlock~is independent of a \mutexwait~or \mutextest~of another actor, 
+(*A \mutexunlock~is independent of a \MutexWaitAny~or \MutexTestAny~of another actor, 
 except if they concern the same mutex and one of the actors owns the mutex  ??? *)
 
- 
- 
+
+
+
 =============================================================================
 \* Modification History
-\* Last modified Tue Feb 12 15:31:01 CET 2019 by diep-chi
-\* Created Fri Jan 12 18:32:38 CET 2018 by diep-chi
-
+\* Last modified Thu Jun 06 13:14:28 CEST 2019 by diep-chi
+\* Created Thu Jun 06 11:01:30 CEST 2019 by diep-chi
