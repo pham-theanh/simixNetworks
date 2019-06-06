@@ -43,9 +43,9 @@ CONSTANTS (*Sets containing the names of all the actors, mailboxes and Mutex *)
           
 VARIABLES Communications, Memory, pc,  Mutex, Locks, Mailboxes,  nbComMbs, nbtest
 
-NoActor == CHOOSE a : a \notin Actors
-NoAddr == CHOOSE addr : addr \notin Addresses
-
+NoActor == "NoActor"
+NoAddr == "NoAddress"
+          
 
 Partition(S) == \forall x,y \in S : x \cap y /= {} => x = y
 ASSUME Partition({SendIns, ReceiveIns, WaitIns, TestIns
@@ -60,9 +60,9 @@ Instr ==UNION {SendIns, ReceiveIns, WaitIns, TestIns
 Init == /\ Communications = { }
         (*/\ Memory \in [Actors -> [Addresses -> Nat]*)
         (*Set Memory for running model*)
-         \*/\ Memory = [ i \in Actors, j \in Addresses |-> << >>]
+        \* /\ Memory = [ i \in Actors, j \in Addresses |-> " zero"]
         
-        /\ Memory \in [Actors -> [Addresses -> { << >> }  ] ]
+        /\ Memory \in [Actors -> [Addresses -> {"zero"}   ] ]
         /\ Mutex = [i \in MutexIds |-> <<>>] 
         /\ Mailboxes = [i \in MailboxesIds |-> <<>>] 
         /\ Locks = [i \in Actors |-> {}]
@@ -71,7 +71,7 @@ Init == /\ Communications = { }
         /\ nbComMbs =  [i \in MailboxesIds |-> 0]        
         /\ nbtest = 0
 (* Comm type is declared as a structure *)  
-Comm == [id: <<Nat, Nat >> ,
+Comm == [id: "" ,
          status:{"send", "receive", "done"},
          src:  Actors \cup { NoActor },
          dst:  Actors  \cup { NoActor },
@@ -110,7 +110,10 @@ remove(e,q) == SubSeq(q, 1, getIndex(e,q)-1) \circ SubSeq(q, getIndex(e,q)+1, Le
 isMember(m, q) == IF \E i \in (1..Len(q)): m = q[i] THEN TRUE
                   ELSE FALSE
 
-abval =={ << >> }
+converToString(x,y,z) == ToString(x) \circ y \circ ToString(z)  
+
+
+abval =={ " "}
    
 (* ---------------------------------------------------- LOCAL SUBSYSTEM ---------------------------------------------*)
 
@@ -122,7 +125,7 @@ Local(aId) ==
     /\ pc[aId] \in LocalIns
     \*change value of Memory[aId][a], set {0,1,2,3,4,5} just for running model
   
-    /\ Memory' \in [Actors -> [Addresses -> { << >> }  ] ]
+    /\ Memory' \in [Actors -> [Addresses -> {"a", "b", "c"}  ] ]
     /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
     /\ UNCHANGED <<Communications, Mutex, Locks, Mailboxes, nbComMbs, nbtest >>
 
@@ -155,7 +158,7 @@ AsyncSend(aId, mbId, data_addr, comm_addr) ==
            \/ /\ Len(Mailboxes[mbId]) > 0 
               /\ Head(Mailboxes[mbId]).status = "send" 
         /\ LET comm ==  
-                 [id |-> <<mbId, nbComMbs[mbId] >>,
+                 [id |->  converToString(nbComMbs[mbId], "Mb", mbId ),
                   status |-> "send", 
                   src |-> aId,
                   dst |-> NoActor, 
@@ -211,7 +214,7 @@ AsyncReceive(aId, mbId, data_addr, comm_addr) ==
            \/ /\ Len(Mailboxes[mbId]) > 0 
               /\ Head(Mailboxes[mbId]).status = "receive"
         /\ LET comm ==  
-                 [id |-> <<mbId, nbComMbs[mbId] >>,
+                 [id |-> converToString(nbComMbs[mbId], "Mb", mbId ),
                   status |-> "receive", 
                   src |-> NoActor,
                   dst |-> aId, 
@@ -273,11 +276,11 @@ TestAny(aId, comm_addrs, testResult_Addr) ==
   /\ testResult_Addr \in Addresses
   /\ \/ \E comm_addr \in comm_addrs, comm \in Communications: comm.id = Memory[aId][comm_addr]
         (* If the communication is "done" return ValTrue *)
-           /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = <<1>>]
+           /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = "true"]
           \* /\ nbtest' =  nbtest +1
         (* if no communication is "done", return ValFalse *)   
      \/ /\ ~ \exists comm_addr \in comm_addrs, comm \in Communications: comm.id = Memory[aId][comm_addr]
-        /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = <<0>>]
+        /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = "false"]
         /\ UNCHANGED  nbtest
   (* Test is non-blocking since in all cases pc[aId] is incremented *)
   /\ \E ins \in Instr : pc' = [pc EXCEPT ![aId] = ins]
@@ -351,10 +354,10 @@ MutexTestAny(aId, locks, testResult_Addr) ==
   /\ aId \in Actors
   /\ testResult_Addr \in Addresses
   /\  \/ /\ \E req \in  locks: isHead(aId, Mutex[req]) 
-         /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = <<1>> (*TRUE*)]
+         /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = "true" (*TRUE*)]
          /\ nbtest' = nbtest +1
       \/ /\ ~\E req \in  locks: isHead(aId, Mutex[req]) 
-         /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = <<0>> (*FALSE*)] 
+         /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = "false" (*FALSE*)] 
          /\ UNCHANGED nbtest 
   /\ UNCHANGED <<Mutex, Locks, Communications, Mailboxes, nbComMbs , pc>>
 
@@ -540,5 +543,5 @@ except if they concern the same mutex and one of the actors owns the mutex  ??? 
 
 =============================================================================
 \* Modification History
-\* Last modified Thu Jun 06 13:14:28 CEST 2019 by diep-chi
+\* Last modified Thu Jun 06 18:15:36 CEST 2019 by diep-chi
 \* Created Thu Jun 06 11:01:30 CEST 2019 by diep-chi
