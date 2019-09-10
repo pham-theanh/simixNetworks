@@ -256,9 +256,9 @@ WaitAny(aId, comm_addrs) ==
 TestAny(aId, comm_addrs, testResult_Addr) ==
   /\ aId \in Actors
   /\ testResult_Addr \in Addresses
-  /\ \/ \E comm_addr \in comm_addrs, comm \in Communications: comm.id = Memory[aId][comm_addr]
+  /\ \/ /\ \E comm_addr \in comm_addrs, comm \in Communications: comm.id = Memory[aId][comm_addr]
         (* If the communication is "done" return ValTrue *)
-           /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = "true"]
+        /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = "true"]
           \* /\ nbtest' =  nbtest +1
         (* if no communication is "done", return ValFalse *)   
      \/ /\ ~ \exists comm_addr \in comm_addrs, comm \in Communications: comm.id = Memory[aId][comm_addr]
