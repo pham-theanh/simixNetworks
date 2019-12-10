@@ -100,12 +100,16 @@ isMember(m, q) == IF \E i \in (1..Len(q)): m = q[i] THEN TRUE
 
 converToString(x,y,z) == ToString(x) \circ y \circ ToString(z)  
 
-(*This function should return id of first done communication in Comms, here is only PROTOTYPE, used only for expressing theorems   *)
+(*This function should return id of first done communication in Comms, but now it is only PROTOTYPE ( returning the first one),  used only for expressing theorems   *)
 firstDone(Comms) == 1
   
  twoFirstOwner (mt,a1,a2) == IF ( ~ (getIndex(a1,Mutexes[mt]) \in { 1,2}) \/  ~ (getIndex(a2,Mutexes[mt]) \in { 1,2})) THEN FALSE
+ 
                              ELSE TRUE
-  
+ (*This function should to return the firt executed mutexUnlock, but now it is a PROTOTYPE used only for expressing theorems *)
+ 
+ firstExecutedUnlock(M,m) == 1
+ 
 (* ---------------------------------------------------- LocalComp SUBSYSTEM ---------------------------------------------*)
 
 
@@ -170,7 +174,6 @@ AsyncSend(aId, mbId, data_addr, comm_addr) ==
                  /\ Mailboxes' = [Mailboxes EXCEPT ![mbId] = Tail(Mailboxes[mbId])]
                  /\ Memory' = [Memory EXCEPT ![comm.dst][comm.data_dst] = 
                                                     Memory[aId][data_addr]]
-                 /\ Memory' = [Memory EXCEPT ![aId][comm_addr] = comm.id] 
                  /\ UNCHANGED <<nbComMbs, nbtest>>
   /\ UNCHANGED << Mutexes, Requests , nbtest>> 
 
@@ -225,7 +228,6 @@ AsyncReceive(aId, mbId, data_addr, comm_addr) ==
                  /\ Memory' = [Memory EXCEPT ![aId][data_addr] = 
                                                     Memory[comm.src][comm.data_src]]
                  /\ Mailboxes' = [Mailboxes EXCEPT ![mbId] = Tail(Mailboxes[mbId])]
-                 /\ Memory' = [Memory EXCEPT ![aId][comm_addr] = comm.id]
                  /\ UNCHANGED <<nbComMbs>>
   /\ UNCHANGED <<Mutexes, Requests , nbtest>> 
 
@@ -256,9 +258,9 @@ WaitAny(aId, comm_addrs) ==
 TestAny(aId, comm_addrs, testResult_Addr) ==
   /\ aId \in Actors
   /\ testResult_Addr \in Addresses
-  /\ \/ /\ \E comm_addr \in comm_addrs, comm \in Communications: comm.id = Memory[aId][comm_addr]
+  /\ \/ \E comm_addr \in comm_addrs, comm \in Communications: comm.id = Memory[aId][comm_addr]
         (* If the communication is "done" return ValTrue *)
-        /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = "true"]
+           /\ Memory' = [Memory EXCEPT ![aId][testResult_Addr] = "true"]
           \* /\ nbtest' =  nbtest +1
         (* if no communication is "done", return ValFalse *)   
      \/ /\ ~ \exists comm_addr \in comm_addrs, comm \in Communications: comm.id = Memory[aId][comm_addr]
@@ -420,7 +422,6 @@ THEOREM \forall a1, a2 \in Actors, mt \in MutexIds,  data, comm, test_r1,  test_
            /\ I(MutexTestAny(a1, reqs, test_r1), AsyncReceive(a2, mbId, data, comm))
            /\ I(MutexTestAny(a1, reqs, test_r1), WaitAny(a2, comm_addrs))   
            /\ I(MutexTestAny(a1, reqs, test_r1), TestAny(a2, comm_addrs, test_r2))   
-           
 
 
 (* two AsyncSend  or two AsyncReceive are independent if they concern different mailboxes 
@@ -438,8 +439,8 @@ THEOREM \forall a1, a2 \in Actors, mbId1, mbId2 \in MailboxesIds, data1, data2, 
         /\ a1 /= a2 
         /\ mbId1 /= mbId2
           => /\ I(AsyncSend(a1, mbId1, data1, comm1), AsyncSend(a2, mbId2, data2, comm2)) 
-            /\ I(AsyncReceive(a1, mbId1, data1, comm1),  AsyncReceive(a2, mbId2, data2, comm2))
-            /\ I(AsyncSend(a1, mbId1, data1, comm1), AsyncReceive(a2, mbId2, data2, comm2)) 
+             /\ I(AsyncReceive(a1, mbId1, data1, comm1),  AsyncReceive(a2, mbId2, data2, comm2))
+             /\ I(AsyncSend(a1, mbId1, data1, comm1), AsyncReceive(a2, mbId2, data2, comm2)) 
 
 
 
@@ -457,6 +458,16 @@ THEOREM \forall a1, a2 \in Actors, comms1, comms2 \in SUBSET Addresses, test_r1,
            /\ I(TestAny(a1, comms1, test_r1), TestAny(a2, comms2, test_r2))   
            /\ I(WaitAny(a1, comms1), TestAny(a2, comms2, test_r2))
   
+  
+  
+
+THEOREM \forall a1, a2 \in Actors, comms1, comms2 \in SUBSET Addresses, test_r1, test_r2 \in Addresses :
+            /\  a1 /= a2 =>  I(WaitAny(a1, comms1), WaitAny(a2, comms2))
+            /\ a1 /= a2  => I(TestAny(a1, comms1, test_r1), TestAny(a2, comms2, test_r2)) 
+        
+  
+  
+  
 
 (* A WaitAny action or a TestAny action and a AsyncSend action or a 
 AsyncReceive action are independent if they concern different communication. *)
@@ -464,8 +475,7 @@ AsyncReceive action are independent if they concern different communication. *)
 
 THEOREM \forall a1, a2 \in Actors, data, comm_addr, test_r \in Addresses,  comms \in SUBSET Addresses, mbId\in MailboxesIds:
               /\ a1 /= a2
-              /\ ~\E comm \in comms: /\ Memory[a1][comm] /=   Memory[a2][comm_addr] 
-                                     /\ firstDone(comms) /=   Memory[a2][comm_addr] 
+              /\ firstDone(comms) /=   Memory[a2][comm_addr] 
                  =>  /\ I( WaitAny(a1, {comms}), AsyncSend(a2, mbId, data, comm_addr)) 
                      /\ I( WaitAny(a1, {comms}), AsyncReceive(a2, mbId, data, comm_addr)) 
                      /\ I(TestAny(a1, {comms}, test_r ), AsyncSend(a2, mbId, data, comm_addr))
@@ -511,6 +521,8 @@ THEOREM \forall a1, a2 \in Actors, mts1, mts2 \in SUBSET MutexIds,  test_r1, tes
          /\ a1 /= a2
          /\ \/ ~\E req \in requests: mt = req 
             \/ ~ twoFirstOwner(mt,a1,a2)
+            \/ ~ firstExecutedUnlock(requests,mt)
+            
          =>         /\ I(MutexUnlock(a1, mt), MutexWaitAny(a2, requests))
                     /\ I(MutexUnlock(a1, mt), MutexTestAny(a1,requests , test_r))
 
@@ -522,5 +534,5 @@ except if they concern the same Mutexes and one of the actors owns the Mutexes  
 
 =============================================================================
 \* Modification History
-\* Last modified Fri Jun 14 16:23:54 CEST 2019 by diep-chi
+\* Last modified Tue Dec 10 16:32:49 CET 2019 by diep-chi
 \* Created Thu Jun 06 11:01:30 CEST 2019 by diep-chi
